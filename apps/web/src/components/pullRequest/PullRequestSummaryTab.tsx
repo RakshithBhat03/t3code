@@ -27,7 +27,6 @@ import { formatRelativeTimeLabel } from "~/timestampFormat";
 
 import { Button } from "../ui/button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
-import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -83,30 +82,25 @@ function PullRequestLabelChip({ label }: { readonly label: PullRequestLabel }) {
   }
 
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={0}
-        closeDelay={120}
+    <Tooltip>
+      <TooltipTrigger
         render={
           <button
             type="button"
-            aria-label={`Label: ${label.name}`}
             className="inline-flex max-w-48 cursor-help items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 py-0.5 pl-1.5 pr-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         }
       >
         {contents}
-      </PopoverTrigger>
-      <PopoverPopup
+      </TooltipTrigger>
+      <TooltipPopup
         align="start"
         side="bottom"
-        className="max-w-80"
-        viewportClassName="py-2.5 [--viewport-inline-padding:--spacing(3)]"
+        className="max-w-80 whitespace-normal leading-tight wrap-anywhere"
       >
-        <p className="wrap-anywhere text-xs text-foreground">{description}</p>
-      </PopoverPopup>
-    </Popover>
+        {description}
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 
