@@ -65,7 +65,24 @@ function invokeComponent(element: TestElement): TestElement {
 
 function renderControl() {
   hooks.beginRender();
+  const output = invokeComponent(SidebarUpdatePill() as TestElement);
+  const releaseNotesPopover = findReleaseNotesPopover(output);
+  return releaseNotesPopover ? invokeComponent(releaseNotesPopover) : output;
+}
+
+function renderControlElement() {
+  hooks.beginRender();
   return invokeComponent(SidebarUpdatePill() as TestElement);
+}
+
+function findReleaseNotesPopover(output: TestElement) {
+  return visitElements(
+    output,
+    (element) =>
+      typeof element.type === "function" &&
+      typeof element.props.renderTrigger === "function" &&
+      element.props.state === testState.desktopUpdate,
+  );
 }
 
 function findTrigger(output: TestElement) {
@@ -153,6 +170,17 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(popup?.props.style).toBeUndefined();
     expect(popup?.props.viewportClassName).toContain("max-h-");
     expect(actionButton).toBeNull();
+  });
+
+  it("mounts the stateful popover only while release notes are eligible", () => {
+    const eligibleOutput = renderControlElement();
+
+    expect(findReleaseNotesPopover(eligibleOutput)).not.toBeNull();
+
+    testState.desktopUpdate = { ...availableState, status: "checking", releaseNotes: [] };
+    const ineligibleOutput = renderControlElement();
+
+    expect(findReleaseNotesPopover(ineligibleOutput)).toBeNull();
   });
 
   it("closes focused release notes only after focus and pointer leave the popover", () => {
