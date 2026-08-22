@@ -141,6 +141,13 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(preventBaseUIHandler).not.toHaveBeenCalled();
   });
 
+  it("keeps focus on the trigger when the popover opens", () => {
+    const { output } = renderPopover();
+    const popup = visitElements(output, (element) => element.props.initialFocus === false);
+
+    expect(popup).toBeDefined();
+  });
+
   it.each(["touch", "pen"] as const)(
     "opens release notes before acting for a %s click",
     (pointerType) => {

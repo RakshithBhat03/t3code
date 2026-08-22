@@ -227,6 +227,7 @@ function SidebarUpdateReleaseNotesPopover({
         <PopoverPopup
           align="center"
           className="max-w-[min(24rem,calc(100vw-2rem))]"
+          initialFocus={false}
           ref={popupRef}
           side="top"
           viewportClassName="max-h-[min(28rem,var(--available-height))] py-3"
