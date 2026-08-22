@@ -1,5 +1,5 @@
 import { TriangleAlertIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { isElectron } from "../../env";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { cn } from "../../lib/utils";
@@ -113,6 +113,42 @@ function SidebarUpdateReleaseNotes({
   );
 }
 
+function SidebarUpdateReleaseNotesPopover({
+  disabled,
+  renderTrigger,
+  state,
+  tooltip,
+}: {
+  readonly disabled: boolean;
+  readonly renderTrigger: (setOpen: (open: boolean) => void) => ReactElement;
+  readonly state: NonNullable<ReturnType<typeof useDesktopUpdateState>>;
+  readonly tooltip: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        closeDelay={120}
+        delay={150}
+        disabled={disabled}
+        openOnHover
+        render={renderTrigger(setOpen)}
+      />
+      <PopoverPopup
+        align="center"
+        className="max-w-[min(24rem,calc(100vw-2rem))]"
+        initialFocus={false}
+        side="top"
+        viewportClassName="max-h-[min(28rem,var(--available-height))] py-3"
+      >
+        <PopoverTitle className="sr-only">{tooltip}</PopoverTitle>
+        <SidebarUpdateReleaseNotes state={state} tooltip={tooltip} />
+      </PopoverPopup>
+    </Popover>
+  );
+}
+
 export function SidebarUpdateArchitectureWarning() {
   return isElectron ? <SidebarUpdateArchitectureWarningContent /> : null;
 }
@@ -140,7 +176,6 @@ export function SidebarUpdatePill() {
 function SidebarUpdateControl() {
   const state = useDesktopUpdateState();
   const [isActionPending, setIsActionPending] = useState(false);
-  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [checkAnimationKey, setCheckAnimationKey] = useState(0);
   const [isCheckAnimationLatched, setIsCheckAnimationLatched] = useState(false);
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -304,7 +339,7 @@ function SidebarUpdateControl() {
 
   const showReleaseNotesPopover =
     showUpdateDetails && state?.channel === "nightly" && state.releaseNotes.length > 0;
-  const trigger = (
+  const renderTrigger = (setReleaseNotesOpen?: (open: boolean) => void) => (
     <button
       type="button"
       aria-label={tooltip}
@@ -317,25 +352,27 @@ function SidebarUpdateControl() {
           : "text-[var(--sidebar-icon-color)] enabled:hover:bg-sidebar-row-hover enabled:hover:text-sidebar-foreground",
         disabled && !showUpdateIconState && "opacity-60",
       )}
-      onBlur={(event) => {
-        const popupId = event.currentTarget.getAttribute("aria-controls");
-        const popup = popupId ? document.getElementById(popupId) : null;
-        const focusMovedIntoPopup =
-          event.relatedTarget !== null && popup?.contains(event.relatedTarget as Node);
+      onBlur={
+        setReleaseNotesOpen
+          ? (event) => {
+              const popupId = event.currentTarget.getAttribute("aria-controls");
+              const popup = popupId ? document.getElementById(popupId) : null;
+              const focusMovedIntoPopup =
+                event.relatedTarget !== null && popup?.contains(event.relatedTarget as Node);
 
-        if (popup?.matches(":hover") || focusMovedIntoPopup) return;
-        setReleaseNotesOpen(false);
-      }}
-      onFocus={() => {
-        if (showReleaseNotesPopover) setReleaseNotesOpen(true);
-      }}
+              if (popup?.matches(":hover") || focusMovedIntoPopup) return;
+              setReleaseNotesOpen(false);
+            }
+          : undefined
+      }
+      onFocus={setReleaseNotesOpen ? () => setReleaseNotesOpen(true) : undefined}
       onClick={(event) => {
         (
           event as typeof event & {
             preventBaseUIHandler?: () => void;
           }
         ).preventBaseUIHandler?.();
-        setReleaseNotesOpen(false);
+        setReleaseNotesOpen?.(false);
         void handleAction();
       }}
     >
@@ -351,29 +388,16 @@ function SidebarUpdateControl() {
 
   return (
     <SidebarMenuItem className="ml-auto shrink-0">
-      {showReleaseNotesPopover ? (
-        <Popover onOpenChange={setReleaseNotesOpen} open={releaseNotesOpen}>
-          <PopoverTrigger
-            closeDelay={120}
-            delay={150}
-            disabled={disabled || isActionPending}
-            openOnHover
-            render={trigger}
-          />
-          <PopoverPopup
-            align="center"
-            className="max-w-[min(24rem,calc(100vw-2rem))]"
-            initialFocus={false}
-            side="top"
-            viewportClassName="max-h-[min(28rem,var(--available-height))] py-3"
-          >
-            <PopoverTitle className="sr-only">{tooltip}</PopoverTitle>
-            <SidebarUpdateReleaseNotes state={state} tooltip={tooltip} />
-          </PopoverPopup>
-        </Popover>
+      {showReleaseNotesPopover && state ? (
+        <SidebarUpdateReleaseNotesPopover
+          disabled={disabled || isActionPending}
+          renderTrigger={renderTrigger}
+          state={state}
+          tooltip={tooltip}
+        />
       ) : (
         <Tooltip>
-          <TooltipTrigger render={trigger} />
+          <TooltipTrigger render={renderTrigger()} />
           <TooltipPopup
             align="center"
             side="top"
