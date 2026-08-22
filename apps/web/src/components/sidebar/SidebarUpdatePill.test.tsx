@@ -155,6 +155,28 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(actionButton).toBeNull();
   });
 
+  it("opens the release notes on focus and closes them on blur", () => {
+    const output = renderControl();
+    const trigger = findTrigger(output);
+    const onFocus = trigger.props.onFocus as (() => void) | undefined;
+
+    onFocus?.();
+
+    const focusedOutput = renderControl();
+    const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
+    const focusedTrigger = findTrigger(focusedOutput);
+    const onBlur = focusedTrigger.props.onBlur as (() => void) | undefined;
+
+    expect(focusedRoot).not.toBeNull();
+
+    onBlur?.();
+
+    const blurredOutput = renderControl();
+    const blurredRoot = visitElements(blurredOutput, (element) => element.props.open === false);
+
+    expect(blurredRoot).not.toBeNull();
+  });
+
   it.each([
     { channel: "latest" as const, releaseNotes: availableState.releaseNotes },
     { channel: "nightly" as const, releaseNotes: [] },

@@ -325,6 +325,10 @@ function SidebarUpdateControl() {
             ),
         disabled && !showUpdateIconState && "opacity-60",
       )}
+      onBlur={() => setReleaseNotesOpen(false)}
+      onFocus={() => {
+        if (showReleaseNotesPopover) setReleaseNotesOpen(true);
+      }}
       onClick={(event) => {
         (
           event as typeof event & {
