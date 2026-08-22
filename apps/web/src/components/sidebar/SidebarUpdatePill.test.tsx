@@ -64,22 +64,32 @@ function invokeComponent(element: TestElement): TestElement {
   return component(element.props);
 }
 
-function renderPopover() {
+function renderControl() {
   hooks.beginRender();
   const control = SidebarUpdatePill() as TestElement;
-  const popover = invokeComponent(control);
-  const output = invokeComponent(popover);
+  return invokeComponent(control);
+}
+
+function findTrigger(output: TestElement) {
   const trigger = visitElements(
     output,
     (element) => element.type === "button" && typeof element.props["aria-label"] === "string",
   );
+  if (!trigger) throw new Error("Expected update trigger");
+  return trigger;
+}
+
+function renderPopover() {
+  const popover = renderControl();
+  const output = invokeComponent(popover);
+  const trigger = findTrigger(output);
   const root = visitElements(
     output,
     (element) =>
       typeof element.props.open === "boolean" && typeof element.props.onOpenChange === "function",
   );
 
-  if (!trigger || !root) throw new Error("Expected update popover and trigger");
+  if (!root) throw new Error("Expected update popover");
   return { output, root, trigger };
 }
 
@@ -155,7 +165,7 @@ describe("SidebarUpdatePill release notes popover", () => {
     const { trigger } = renderPopover();
     activateTrigger(trigger, "mouse");
 
-    expect(trigger.props.disabled).toBe(false);
+    expect(trigger.props.disabled).toBeUndefined();
     expect(trigger.props["aria-disabled"]).toBe(true);
     expect(trigger.props.className).toContain("cursor-not-allowed");
     expect(trigger.props.className).not.toContain("cursor-pointer");
@@ -180,10 +190,29 @@ describe("SidebarUpdatePill release notes popover", () => {
     );
     activateTrigger(rerendered.trigger, "mouse");
 
-    expect(rerendered.trigger.props.disabled).toBe(false);
+    expect(rerendered.trigger.props.disabled).toBeUndefined();
     expect(rerendered.trigger.props["aria-disabled"]).toBe(true);
     expect(rerendered.trigger.props.className).toContain("cursor-not-allowed");
     expect(actionButton?.props.disabled).toBe(true);
     expect(testState.downloadUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the stable downloading tooltip trigger keyboard-focusable", () => {
+    testState.desktopUpdate = {
+      ...availableState,
+      status: "downloading",
+      channel: "latest",
+      releaseNotes: [],
+      downloadPercent: 42,
+    };
+
+    const trigger = findTrigger(renderControl());
+    activateTrigger(trigger, "mouse");
+
+    expect(trigger.props.disabled).toBeUndefined();
+    expect(trigger.props["aria-disabled"]).toBe(true);
+    expect(trigger.props.className).toContain("cursor-not-allowed");
+    expect(trigger.props.className).not.toContain("cursor-pointer");
+    expect(testState.downloadUpdate).not.toHaveBeenCalled();
   });
 });

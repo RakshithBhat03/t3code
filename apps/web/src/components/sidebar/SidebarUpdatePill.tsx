@@ -167,7 +167,6 @@ function SidebarUpdateReleaseNotesPopover({
   const suppressNextFocusOpenRef = useRef(false);
 
   const interactiveTrigger = cloneElement(trigger, {
-    disabled: false,
     onClick: (event) => {
       const pointerType = pointerTypeRef.current;
       pointerTypeRef.current = null;
@@ -445,7 +444,6 @@ function SidebarUpdateControl() {
       type="button"
       aria-label={tooltip}
       aria-disabled={isTriggerActionDisabled || undefined}
-      disabled={isTriggerActionDisabled}
       className={cn(
         "inline-flex size-8 items-center justify-center rounded-full outline-hidden ring-ring transition-colors focus-visible:ring-2",
         isTriggerActionDisabled ? "cursor-not-allowed" : "cursor-pointer",
