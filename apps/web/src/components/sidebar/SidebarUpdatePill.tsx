@@ -167,7 +167,6 @@ function SidebarUpdateReleaseNotesPopover({
   const suppressNextFocusOpenRef = useRef(false);
 
   const interactiveTrigger = cloneElement(trigger, {
-    "aria-disabled": undefined,
     disabled: false,
     onClick: (event) => {
       const pointerType = pointerTypeRef.current;
@@ -439,18 +438,27 @@ function SidebarUpdateControl() {
   const showReleaseNotes = Boolean(
     showUpdateDetails && state && state.channel === "nightly" && state.releaseNotes.length > 0,
   );
+  const isTriggerActionDisabled = disabled || isActionPending;
 
   const trigger = (
     <button
       type="button"
       aria-label={tooltip}
-      aria-disabled={disabled || isActionPending || undefined}
-      disabled={disabled || isActionPending}
+      aria-disabled={isTriggerActionDisabled || undefined}
+      disabled={isTriggerActionDisabled}
       className={cn(
-        "inline-flex size-8 items-center justify-center rounded-full outline-hidden ring-ring transition-colors enabled:cursor-pointer focus-visible:ring-2 disabled:cursor-not-allowed",
+        "inline-flex size-8 items-center justify-center rounded-full outline-hidden ring-ring transition-colors focus-visible:ring-2",
+        isTriggerActionDisabled ? "cursor-not-allowed" : "cursor-pointer",
         showUpdateIconState
-          ? "bg-update-surface text-update-foreground enabled:hover:bg-update/12"
-          : "text-[var(--sidebar-icon-color)] enabled:hover:bg-sidebar-row-hover enabled:hover:text-sidebar-foreground",
+          ? cn(
+              "bg-update-surface text-update-foreground",
+              !isTriggerActionDisabled && "hover:bg-update/12",
+            )
+          : cn(
+              "text-[var(--sidebar-icon-color)]",
+              !isTriggerActionDisabled &&
+                "hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+            ),
         disabled && !showUpdateIconState && "opacity-60",
       )}
       onClick={handleAction}
