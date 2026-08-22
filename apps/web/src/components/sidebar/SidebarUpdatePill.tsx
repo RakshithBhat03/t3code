@@ -325,7 +325,15 @@ function SidebarUpdateControl() {
             ),
         disabled && !showUpdateIconState && "opacity-60",
       )}
-      onBlur={() => setReleaseNotesOpen(false)}
+      onBlur={(event) => {
+        const popupId = event.currentTarget.getAttribute("aria-controls");
+        const popup = popupId ? document.getElementById(popupId) : null;
+        const focusMovedIntoPopup =
+          event.relatedTarget !== null && popup?.contains(event.relatedTarget as Node);
+
+        if (popup?.matches(":hover") || focusMovedIntoPopup) return;
+        setReleaseNotesOpen(false);
+      }}
       onFocus={() => {
         if (showReleaseNotesPopover) setReleaseNotesOpen(true);
       }}
