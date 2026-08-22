@@ -155,7 +155,7 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(actionButton).toBeNull();
   });
 
-  it("opens the release notes on focus and closes them on blur", () => {
+  it("closes focused release notes only after focus and pointer leave the popover", () => {
     const output = renderControl();
     const trigger = findTrigger(output);
     const onFocus = trigger.props.onFocus as (() => void) | undefined;
@@ -165,11 +165,48 @@ describe("SidebarUpdatePill release notes popover", () => {
     const focusedOutput = renderControl();
     const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
     const focusedTrigger = findTrigger(focusedOutput);
-    const onBlur = focusedTrigger.props.onBlur as (() => void) | undefined;
+    const onBlur = focusedTrigger.props.onBlur as
+      | ((event: {
+          currentTarget: { getAttribute: (name: string) => string | null };
+          relatedTarget: EventTarget | null;
+        }) => void)
+      | undefined;
+    const matches = vi.fn(() => true);
+    const contains = vi.fn(() => false);
+    const popupId = "release-notes-popover";
+    vi.stubGlobal("document", {
+      getElementById: vi.fn(() => ({ contains, matches })),
+    });
+    const blurEvent = {
+      currentTarget: {
+        getAttribute: (name: string) => (name === "aria-controls" ? popupId : null),
+      },
+      relatedTarget: {} as EventTarget,
+    };
 
     expect(focusedRoot).not.toBeNull();
 
-    onBlur?.();
+    onBlur?.(blurEvent);
+
+    const hoveredOutput = renderControl();
+    const hoveredRoot = visitElements(hoveredOutput, (element) => element.props.open === true);
+
+    expect(hoveredRoot).not.toBeNull();
+
+    matches.mockReturnValue(false);
+    contains.mockReturnValue(true);
+    onBlur?.(blurEvent);
+
+    const containedFocusOutput = renderControl();
+    const containedFocusRoot = visitElements(
+      containedFocusOutput,
+      (element) => element.props.open === true,
+    );
+
+    expect(containedFocusRoot).not.toBeNull();
+
+    contains.mockReturnValue(false);
+    onBlur?.(blurEvent);
 
     const blurredOutput = renderControl();
     const blurredRoot = visitElements(blurredOutput, (element) => element.props.open === false);
