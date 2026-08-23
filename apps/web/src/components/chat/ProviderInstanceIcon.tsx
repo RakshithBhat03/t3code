@@ -4,6 +4,15 @@ import { type ProviderDriverKind } from "@t3tools/contracts";
 import { PROVIDER_ICON_BY_PROVIDER } from "./providerIconUtils";
 import { cn } from "~/lib/utils";
 
+const NEUTRAL_BADGE_SURFACE = {
+  backgroundImage: [
+    "linear-gradient(var(--muted), var(--muted))",
+    "linear-gradient(var(--card), var(--card))",
+    "linear-gradient(var(--background), var(--background))",
+    "linear-gradient(Canvas, Canvas)",
+  ].join(", "),
+} satisfies CSSProperties;
+
 export function providerInstanceInitials(label: string): string {
   const words = label.replace(/[_-]+/g, " ").split(/\s+/u).filter(Boolean);
   if (words.length === 0) return "";
@@ -32,6 +41,11 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
     ? ({ "--provider-accent": props.accentColor } as CSSProperties)
     : undefined;
   const badgeContent = props.badgeContent ?? "initials";
+  // Stack the theme surfaces over Canvas so the badge always occludes the glyph.
+  // Imported themes may make any individual surface translucent.
+  const badgeSurface: CSSProperties | undefined = props.accentColor
+    ? undefined
+    : NEUTRAL_BADGE_SURFACE;
 
   return (
     <span
@@ -65,10 +79,10 @@ export const ProviderInstanceIcon = memo(function ProviderInstanceIcon(props: {
             "pointer-events-none absolute right-0 bottom-0 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border px-0.5 text-[8px] font-semibold leading-none shadow-sm",
             props.accentColor
               ? "bg-[var(--provider-accent)] text-white"
-              : "bg-muted text-muted-foreground",
+              : "bg-card text-muted-foreground",
             props.badgeClassName,
           )}
-          style={{ borderColor: indicatorBackground }}
+          style={{ borderColor: indicatorBackground, ...badgeSurface }}
           aria-hidden
         >
           {badgeContent === "initials" ? providerInstanceInitials(props.displayName) : null}
