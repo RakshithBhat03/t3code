@@ -126,12 +126,7 @@ function SidebarUpdateReleaseNotesPopover({
 
   return (
     <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger
-        closeDelay={120}
-        delay={150}
-        openOnHover
-        render={renderTrigger(setOpen)}
-      />
+      <PopoverTrigger closeDelay={120} delay={150} openOnHover render={renderTrigger(setOpen)} />
       <PopoverPopup
         align="center"
         className="max-w-[min(24rem,calc(100vw-2rem))]"
@@ -352,8 +347,7 @@ function SidebarUpdateControl() {
             )
           : cn(
               "text-[var(--sidebar-icon-color)]",
-              !isInteractionDisabled &&
-                "hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+              !isInteractionDisabled && "hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
             ),
         disabled && !showUpdateIconState && "opacity-60",
       )}

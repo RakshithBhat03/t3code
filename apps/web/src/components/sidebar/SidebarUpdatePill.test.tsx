@@ -172,6 +172,23 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(actionButton).toBeNull();
   });
 
+  it("keeps release notes available while an update is downloading", () => {
+    testState.desktopUpdate = {
+      ...availableState,
+      status: "downloading",
+      downloadPercent: 42,
+    };
+
+    const output = renderControl();
+    const popoverTrigger = visitElements(output, (element) => element.props.openOnHover === true);
+    const trigger = findTrigger(output);
+
+    expect(popoverTrigger?.props.disabled).toBeUndefined();
+    expect(trigger.props.disabled).toBeUndefined();
+    expect(trigger.props["aria-disabled"]).toBe(true);
+    expect(trigger.props.onFocus).toBeTypeOf("function");
+  });
+
   it("mounts the stateful popover only while release notes are eligible", () => {
     const eligibleOutput = renderControlElement();
 
