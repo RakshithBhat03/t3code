@@ -1630,8 +1630,9 @@ function OpenCommandPaletteDialog(props: {
   });
 
   // There is no projects listing page; the action targets the contextual
-  // project (active thread/draft, falling back to the first sidebar group).
-  const contextualProjectGroup = activeProjectGroup ?? projectGroups[0] ?? null;
+  // project without changing the project picker's configured order.
+  const contextualProjectGroup =
+    activeProjectGroup ?? defaultProjectGroup ?? projectGroups[0] ?? null;
   if (contextualProjectGroup) {
     actionItems.push({
       kind: "action",
