@@ -2,6 +2,7 @@ import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
+  resolveActiveThreadProjectRef,
   resolveThreadActionProjectRef,
   resolveNewDraftStartFromOrigin,
   startNewThreadFromContext,
@@ -49,6 +50,36 @@ describe("chatThreadActions", () => {
     );
 
     expect(projectRef).toEqual(scopeProjectRef(ENVIRONMENT_ID, PROJECT_ID));
+  });
+
+  it("uses only real thread context when resolving the active project", () => {
+    expect(resolveActiveThreadProjectRef(createContext())).toBeNull();
+
+    expect(
+      resolveActiveThreadProjectRef(
+        createContext({
+          activeDraftThread: {
+            environmentId: ENVIRONMENT_ID,
+            projectId: PROJECT_ID,
+          },
+        }),
+      ),
+    ).toEqual(scopeProjectRef(ENVIRONMENT_ID, PROJECT_ID));
+
+    expect(
+      resolveActiveThreadProjectRef(
+        createContext({
+          activeThread: {
+            environmentId: ENVIRONMENT_ID,
+            projectId: PROJECT_ID,
+          },
+          activeDraftThread: {
+            environmentId: ENVIRONMENT_ID,
+            projectId: FALLBACK_PROJECT_ID,
+          },
+        }),
+      ),
+    ).toEqual(scopeProjectRef(ENVIRONMENT_ID, PROJECT_ID));
   });
 
   it("falls back to the active draft thread project when there is no active thread", () => {

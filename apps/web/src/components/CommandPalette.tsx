@@ -27,6 +27,7 @@ import {
   type EnvironmentId,
   type FilesystemBrowseResult,
   type ProjectId,
+  type ScopedProjectRef,
   type SourceControlDiscoveryResult,
   type SourceControlProviderKind,
   type SourceControlRepositoryInfo,
@@ -78,7 +79,7 @@ import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useProjects, useThreadShells } from "../state/entities";
 import { useThreadSearch } from "../state/queries";
-import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
+import { resolveActiveThreadProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import {
   appendBrowsePathSegment,
   ensureBrowseDirectoryPath,
@@ -165,10 +166,27 @@ import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore"
 import {
   buildSidebarProjectPickerEntries,
   buildSidebarProjectSnapshots,
+  type SidebarProjectSnapshot,
 } from "../sidebarProjectGrouping";
 import type { Project } from "../types";
 
 const EMPTY_BROWSE_ENTRIES: FilesystemBrowseResult["entries"] = [];
+
+function findProjectGroupByRef(
+  groups: readonly SidebarProjectSnapshot[],
+  projectRef: ScopedProjectRef | null,
+): SidebarProjectSnapshot | null {
+  if (!projectRef) return null;
+  return (
+    groups.find((group) =>
+      group.memberProjectRefs.some(
+        (memberRef) =>
+          memberRef.environmentId === projectRef.environmentId &&
+          memberRef.projectId === projectRef.projectId,
+      ),
+    ) ?? null
+  );
+}
 
 function projectFavicon(project: Project) {
   return (
@@ -714,23 +732,29 @@ function OpenCommandPaletteDialog(props: {
       ),
     [clientSettings.sidebarProjectSortOrder, threads, unsortedProjectGroups],
   );
-  const contextualProjectRef = useMemo(
+  const activeProjectRef = useMemo(
     () =>
-      resolveThreadActionProjectRef({
+      resolveActiveThreadProjectRef({
         activeDraftThread,
         activeThread: activeThread ?? undefined,
-        defaultProjectRef,
-        handleNewThread,
       }),
-    [activeDraftThread, activeThread, defaultProjectRef, handleNewThread],
+    [activeDraftThread, activeThread],
+  );
+  const activeProjectGroup = useMemo(
+    () => findProjectGroupByRef(projectGroups, activeProjectRef),
+    [activeProjectRef, projectGroups],
+  );
+  const defaultProjectGroup = useMemo(
+    () => findProjectGroupByRef(projectGroups, defaultProjectRef),
+    [defaultProjectRef, projectGroups],
   );
   const projectPickerEntries = useMemo(
     () =>
       buildSidebarProjectPickerEntries({
         groups: projectGroups,
-        preferredProjectRef: contextualProjectRef,
+        preferredProjectRef: activeProjectRef,
       }),
-    [contextualProjectRef, projectGroups],
+    [activeProjectRef, projectGroups],
   );
   const pickerProjects = useMemo(
     () =>
@@ -1057,23 +1081,23 @@ function OpenCommandPaletteDialog(props: {
           icon: projectFavicon,
           runProject: async (project) => {
             const group = projectGroupByTargetKey.get(`${project.environmentId}:${project.id}`);
-            const contextualRefBelongsToGroup =
-              contextualProjectRef !== null &&
+            const activeRefBelongsToGroup =
+              activeProjectRef !== null &&
               group?.memberProjectRefs.some(
                 (projectRef) =>
-                  projectRef.environmentId === contextualProjectRef.environmentId &&
-                  projectRef.projectId === contextualProjectRef.projectId,
+                  projectRef.environmentId === activeProjectRef.environmentId &&
+                  projectRef.projectId === activeProjectRef.projectId,
               );
             await handleNewThread(
-              contextualRefBelongsToGroup
-                ? contextualProjectRef
+              activeRefBelongsToGroup
+                ? activeProjectRef
                 : scopeProjectRef(project.environmentId, project.id),
             );
           },
         }),
       ),
     [
-      contextualProjectRef,
+      activeProjectRef,
       handleNewThread,
       pickerProjects,
       projectEnvironmentLocationById,
@@ -1454,41 +1478,23 @@ function OpenCommandPaletteDialog(props: {
     setAddProjectCloneFlow(null);
     setViewStack([]);
     setQuery("");
-    const currentPrefix =
-      currentProjectEnvironmentId && currentProjectId
-        ? `new-thread-in:${currentProjectEnvironmentId}:${currentProjectId}`
-        : null;
-    const prioritized = currentPrefix
-      ? [
-          ...projectThreadItems.filter((item) => item.value === currentPrefix),
-          ...projectThreadItems.filter((item) => item.value !== currentPrefix),
-        ]
-      : projectThreadItems;
     pushPaletteView({
       addonIcon: <SquarePenIcon className={ADDON_ICON_CLASS} />,
       groups: [
         {
           value: "projects",
           label: "Projects",
-          items: enumerateCommandPaletteItems(prioritized),
+          items: enumerateCommandPaletteItems(projectThreadItems),
         },
       ],
     });
-  }, [
-    clearOpenIntent,
-    browseNavigation,
-    currentProjectEnvironmentId,
-    currentProjectId,
-    openIntent,
-    projectThreadItems,
-    pushPaletteView,
-  ]);
+  }, [clearOpenIntent, browseNavigation, openIntent, projectThreadItems, pushPaletteView]);
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
   if (projects.length > 0) {
     const activeProjectTitle =
-      projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
+      (activeProjectGroup ?? defaultProjectGroup)?.displayName ??
       (currentProjectId ? (projectTitleById.get(currentProjectId) ?? null) : null);
 
     if (activeProjectTitle) {
@@ -1625,14 +1631,7 @@ function OpenCommandPaletteDialog(props: {
 
   // There is no projects listing page; the action targets the contextual
   // project (active thread/draft, falling back to the first sidebar group).
-  const contextualProjectGroup =
-    (contextualProjectRef
-      ? projectGroupByTargetKey.get(
-          `${contextualProjectRef.environmentId}:${contextualProjectRef.projectId}`,
-        )
-      : null) ??
-    projectGroups[0] ??
-    null;
+  const contextualProjectGroup = activeProjectGroup ?? projectGroups[0] ?? null;
   if (contextualProjectGroup) {
     actionItems.push({
       kind: "action",

@@ -34,8 +34,15 @@ export function resolveNewDraftStartFromOrigin(input: {
   return input.envMode === "worktree" && input.newWorktreesStartFromOrigin;
 }
 
-export function resolveThreadActionProjectRef(
-  context: ChatThreadActionContext,
+/**
+ * Returns only the project represented by the route's thread context.
+ *
+ * Non-thread routes deliberately return null. Callers that only want to
+ * highlight or prioritize the project the user is currently viewing must not
+ * turn the fallback project into synthetic route context.
+ */
+export function resolveActiveThreadProjectRef(
+  context: Pick<ChatThreadActionContext, "activeDraftThread" | "activeThread">,
 ): ScopedProjectRef | null {
   if (context.activeThread) {
     return scopeProjectRef(context.activeThread.environmentId, context.activeThread.projectId);
@@ -46,7 +53,13 @@ export function resolveThreadActionProjectRef(
       context.activeDraftThread.projectId,
     );
   }
-  return context.defaultProjectRef;
+  return null;
+}
+
+export function resolveThreadActionProjectRef(
+  context: ChatThreadActionContext,
+): ScopedProjectRef | null {
+  return resolveActiveThreadProjectRef(context) ?? context.defaultProjectRef;
 }
 
 // New threads inherit only the *project* from the current context. Branch,

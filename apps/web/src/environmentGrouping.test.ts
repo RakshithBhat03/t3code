@@ -323,6 +323,34 @@ describe("environment grouping", () => {
     expect(entries[1]?.group.displayName).toBe("separate");
   });
 
+  it("preserves the configured group order when there is no active thread project", () => {
+    const primary = makeProject({ repositoryIdentity });
+    const remote = makeProject({
+      id: ProjectId.make("project-remote"),
+      environmentId: remoteEnvironmentId,
+      repositoryIdentity,
+    });
+    const first = makeProject({
+      id: ProjectId.make("project-first"),
+      title: "first",
+      workspaceRoot: "/tmp/first",
+    });
+    const groups = buildSidebarProjectSnapshots({
+      projects: [first, primary, remote],
+      settings: defaultGroupingSettings,
+      primaryEnvironmentId,
+      resolveEnvironmentLabel: () => null,
+    });
+
+    const entries = buildSidebarProjectPickerEntries({
+      groups,
+      preferredProjectRef: null,
+    });
+
+    expect(entries.map((entry) => entry.group.displayName)).toEqual(["first", "shared-repo"]);
+    expect(entries.every((entry) => !entry.isPreferred)).toBe(true);
+  });
+
   it("keeps manual project order when building grouped sidebar entries", () => {
     const primary = makeProject({ repositoryIdentity });
     const remote = makeProject({
