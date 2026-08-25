@@ -200,12 +200,34 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(findReleaseNotesPopover(ineligibleOutput)).toBeNull();
   });
 
+  it("does not latch pointer focus for the hover popover", () => {
+    const output = renderControl();
+    const trigger = findTrigger(output);
+    const onFocus = trigger.props.onFocus as
+      | ((event: { currentTarget: { matches: (selector: string) => boolean } }) => void)
+      | undefined;
+    const matches = vi.fn(() => false);
+
+    onFocus?.({ currentTarget: { matches } });
+
+    const pointerFocusedOutput = renderControl();
+    const closedRoot = visitElements(
+      pointerFocusedOutput,
+      (element) => element.props.open === false,
+    );
+
+    expect(matches).toHaveBeenCalledWith(":focus-visible");
+    expect(closedRoot).not.toBeNull();
+  });
+
   it("ignores hover close while the release notes trigger remains focused", () => {
     const output = renderControl();
     const trigger = findTrigger(output);
-    const onFocus = trigger.props.onFocus as (() => void) | undefined;
+    const onFocus = trigger.props.onFocus as
+      | ((event: { currentTarget: { matches: () => boolean } }) => void)
+      | undefined;
 
-    onFocus?.();
+    onFocus?.({ currentTarget: { matches: () => true } });
 
     const focusedOutput = renderControl();
     const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
@@ -257,9 +279,11 @@ describe("SidebarUpdatePill release notes popover", () => {
   it("closes focused release notes only after focus and pointer leave the popover", () => {
     const output = renderControl();
     const trigger = findTrigger(output);
-    const onFocus = trigger.props.onFocus as (() => void) | undefined;
+    const onFocus = trigger.props.onFocus as
+      | ((event: { currentTarget: { matches: () => boolean } }) => void)
+      | undefined;
 
-    onFocus?.();
+    onFocus?.({ currentTarget: { matches: () => true } });
 
     const focusedOutput = renderControl();
     const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);

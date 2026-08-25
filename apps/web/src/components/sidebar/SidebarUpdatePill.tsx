@@ -387,7 +387,8 @@ function SidebarUpdateControl() {
       }
       onFocus={
         releaseNotesPopover
-          ? () => {
+          ? (event) => {
+              if (!event.currentTarget.matches(":focus-visible")) return;
               releaseNotesPopover.focusedRef.current = true;
               releaseNotesPopover.setOpen(true);
             }
