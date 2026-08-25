@@ -1,5 +1,5 @@
 import { TriangleAlertIcon } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement, type RefObject } from "react";
 import { isElectron } from "../../env";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { cn } from "../../lib/utils";
@@ -113,20 +113,40 @@ function SidebarUpdateReleaseNotes({
   );
 }
 
+type ReleaseNotesPopoverTriggerControls = {
+  readonly focusedRef: RefObject<boolean>;
+  readonly setOpen: (open: boolean) => void;
+};
+
 function SidebarUpdateReleaseNotesPopover({
   renderTrigger,
   state,
   tooltip,
 }: {
-  readonly renderTrigger: (setOpen: (open: boolean) => void) => ReactElement;
+  readonly renderTrigger: (controls: ReleaseNotesPopoverTriggerControls) => ReactElement;
   readonly state: NonNullable<ReturnType<typeof useDesktopUpdateState>>;
   readonly tooltip: string;
 }) {
   const [open, setOpen] = useState(false);
+  const triggerFocusedRef = useRef(false);
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger closeDelay={120} delay={150} openOnHover render={renderTrigger(setOpen)} />
+    <Popover
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen && eventDetails.reason === "trigger-hover" && triggerFocusedRef.current) {
+          eventDetails.cancel();
+          return;
+        }
+        setOpen(nextOpen);
+      }}
+      open={open}
+    >
+      <PopoverTrigger
+        closeDelay={120}
+        delay={150}
+        openOnHover
+        render={renderTrigger({ focusedRef: triggerFocusedRef, setOpen })}
+      />
       <PopoverPopup
         align="center"
         className="max-w-[min(24rem,calc(100vw-2rem))]"
@@ -332,7 +352,7 @@ function SidebarUpdateControl() {
 
   const showReleaseNotesPopover =
     showUpdateDetails && state?.channel === "nightly" && state.releaseNotes.length > 0;
-  const renderTrigger = (setReleaseNotesOpen?: (open: boolean) => void) => (
+  const renderTrigger = (releaseNotesPopover?: ReleaseNotesPopoverTriggerControls) => (
     <button
       type="button"
       aria-label={tooltip}
@@ -352,19 +372,27 @@ function SidebarUpdateControl() {
         disabled && !showUpdateIconState && "opacity-60",
       )}
       onBlur={
-        setReleaseNotesOpen
+        releaseNotesPopover
           ? (event) => {
+              releaseNotesPopover.focusedRef.current = false;
               const popupId = event.currentTarget.getAttribute("aria-controls");
               const popup = popupId ? document.getElementById(popupId) : null;
               const focusMovedIntoPopup =
                 event.relatedTarget !== null && popup?.contains(event.relatedTarget as Node);
 
               if (popup?.matches(":hover") || focusMovedIntoPopup) return;
-              setReleaseNotesOpen(false);
+              releaseNotesPopover.setOpen(false);
             }
           : undefined
       }
-      onFocus={setReleaseNotesOpen ? () => setReleaseNotesOpen(true) : undefined}
+      onFocus={
+        releaseNotesPopover
+          ? () => {
+              releaseNotesPopover.focusedRef.current = true;
+              releaseNotesPopover.setOpen(true);
+            }
+          : undefined
+      }
       onClick={(event) => {
         (
           event as typeof event & {
@@ -372,7 +400,7 @@ function SidebarUpdateControl() {
           }
         ).preventBaseUIHandler?.();
         if (isInteractionDisabled) return;
-        setReleaseNotesOpen?.(false);
+        releaseNotesPopover?.setOpen(false);
         void handleAction();
       }}
     >

@@ -200,6 +200,60 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(findReleaseNotesPopover(ineligibleOutput)).toBeNull();
   });
 
+  it("ignores hover close while the release notes trigger remains focused", () => {
+    const output = renderControl();
+    const trigger = findTrigger(output);
+    const onFocus = trigger.props.onFocus as (() => void) | undefined;
+
+    onFocus?.();
+
+    const focusedOutput = renderControl();
+    const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
+    if (!focusedRoot) throw new Error("Expected focused update popover");
+    const onOpenChange = focusedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+    const cancelHoverClose = vi.fn();
+
+    onOpenChange(false, { reason: "trigger-hover", cancel: cancelHoverClose });
+
+    const pointerLeftOutput = renderControl();
+    const pointerLeftRoot = visitElements(
+      pointerLeftOutput,
+      (element) => element.props.open === true,
+    );
+
+    expect(cancelHoverClose).toHaveBeenCalledTimes(1);
+    expect(pointerLeftRoot).not.toBeNull();
+
+    const focusedTrigger = findTrigger(pointerLeftOutput);
+    const onBlur = focusedTrigger.props.onBlur as
+      | ((event: {
+          currentTarget: { getAttribute: (name: string) => string | null };
+          relatedTarget: EventTarget | null;
+        }) => void)
+      | undefined;
+    vi.stubGlobal("document", {
+      getElementById: vi.fn(() => ({ contains: () => false, matches: () => true })),
+    });
+    onBlur?.({
+      currentTarget: {
+        getAttribute: (name: string) => (name === "aria-controls" ? "release-notes-popover" : null),
+      },
+      relatedTarget: null,
+    });
+
+    const cancelAfterBlur = vi.fn();
+    onOpenChange(false, { reason: "trigger-hover", cancel: cancelAfterBlur });
+
+    const blurredOutput = renderControl();
+    const blurredRoot = visitElements(blurredOutput, (element) => element.props.open === false);
+
+    expect(cancelAfterBlur).not.toHaveBeenCalled();
+    expect(blurredRoot).not.toBeNull();
+  });
+
   it("closes focused release notes only after focus and pointer leave the popover", () => {
     const output = renderControl();
     const trigger = findTrigger(output);
