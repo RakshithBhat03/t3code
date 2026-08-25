@@ -1,10 +1,28 @@
 import { ExternalLinkIcon, PaperclipIcon, PlayIcon } from "lucide-react";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import { createContext, type ReactNode, useContext } from "react";
 
 import { cn } from "~/lib/utils";
 
 import ChatMarkdown from "../ChatMarkdown";
 import { splitPullRequestBody } from "./pullRequestMarkdown.logic";
+
+const PullRequestThreadRefContext = createContext<ScopedThreadRef | undefined>(undefined);
+
+/** Keeps links inside a thread-owned pull request panel beside that thread. */
+export function PullRequestThreadRefProvider({
+  threadRef,
+  children,
+}: {
+  threadRef: ScopedThreadRef | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <PullRequestThreadRefContext.Provider value={threadRef}>
+      {children}
+    </PullRequestThreadRefContext.Provider>
+  );
+}
 
 /**
  * A pull request body, rendered with the app's markdown renderer plus a card for each upload
@@ -28,6 +46,7 @@ export function PullRequestMarkdown({
   environmentId: EnvironmentId;
   className?: string;
 }) {
+  const threadRef = useContext(PullRequestThreadRefContext);
   const segments = splitPullRequestBody(text);
   return (
     <div className={cn("space-y-3", className)}>
@@ -39,6 +58,7 @@ export function PullRequestMarkdown({
               text={segment.text}
               cwd={cwd}
               environmentId={environmentId}
+              threadRef={threadRef}
             />
           );
         }
