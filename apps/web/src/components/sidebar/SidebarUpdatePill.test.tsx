@@ -232,6 +232,45 @@ describe("SidebarUpdatePill release notes popover", () => {
     },
   );
 
+  it("keeps an eligibility-triggered hover open until the pointer leaves", () => {
+    testState.desktopUpdate = { ...availableState, status: "checking", releaseNotes: [] };
+    const ineligibleOutput = renderControl();
+    const trigger = findTrigger(ineligibleOutput);
+    const triggerRef = trigger.props.ref as {
+      current: { matches: (selector: string) => boolean } | null;
+    };
+    let hovered = true;
+    triggerRef.current = { matches: (selector) => selector === ":hover" && hovered };
+    flushEffects();
+
+    testState.desktopUpdate = availableState;
+    renderControl();
+    flushEffects();
+
+    const openedOutput = renderControl();
+    const openedRoot = visitElements(openedOutput, (element) => element.props.open === true);
+    if (!openedRoot) throw new Error("Expected update popover to open from existing hover");
+    const onOpenChange = openedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+    const cancelReconciledClose = vi.fn();
+
+    onOpenChange(false, { reason: "trigger-hover", cancel: cancelReconciledClose });
+
+    expect(cancelReconciledClose).toHaveBeenCalledTimes(1);
+    expect(visitElements(renderControl(), (element) => element.props.open === true)).not.toBeNull();
+
+    hovered = false;
+    const cancelPointerLeave = vi.fn();
+    onOpenChange(false, { reason: "trigger-hover", cancel: cancelPointerLeave });
+
+    expect(cancelPointerLeave).not.toHaveBeenCalled();
+    expect(
+      visitElements(renderControl(), (element) => element.props.open === false),
+    ).not.toBeNull();
+  });
+
   it("does not latch pointer focus for the hover popover", () => {
     const output = renderControl();
     const trigger = findTrigger(output);

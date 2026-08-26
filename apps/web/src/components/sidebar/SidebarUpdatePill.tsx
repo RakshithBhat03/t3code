@@ -154,7 +154,9 @@ function SidebarUpdateReleaseNotesPopover({
     <Popover
       onOpenChange={(nextOpen, eventDetails) => {
         if (!enabled) return;
-        if (!nextOpen && eventDetails.reason === "trigger-hover" && triggerFocusedRef.current) {
+        const triggerIsActive =
+          triggerFocusedRef.current || triggerRef.current?.matches(":hover") === true;
+        if (!nextOpen && eventDetails.reason === "trigger-hover" && triggerIsActive) {
           eventDetails.cancel();
           return;
         }
