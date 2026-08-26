@@ -140,6 +140,7 @@ function reviewStateLabel(state: string): string {
 /** What every remark in the conversation needs to be rewritten where it sits. */
 interface CommentEditing {
   readonly cwd: string;
+  readonly environmentId: EnvironmentId;
   readonly canEdit: (comment: PullRequestComment) => boolean;
   readonly editingId: string | null;
   readonly saving: boolean;
@@ -166,6 +167,7 @@ function CommentBody({
         className={className}
         value={comment.body}
         cwd={editing.cwd}
+        environmentId={editing.environmentId}
         label="Edit comment"
         saving={editing.saving}
         onSave={(body) => editing.onSave(comment, body)}
@@ -175,7 +177,12 @@ function CommentBody({
   }
   return (
     <div className={cn("flex items-start gap-1", className)}>
-      <PullRequestMarkdown className="min-w-0 flex-1" text={comment.body} cwd={editing.cwd} />
+      <PullRequestMarkdown
+        className="min-w-0 flex-1"
+        text={comment.body}
+        cwd={editing.cwd}
+        environmentId={editing.environmentId}
+      />
       {editing.canEdit(comment) ? (
         <Button
           size="icon-xs"
@@ -535,6 +542,7 @@ export function PullRequestSummaryTab({
 
   const commentEditing: CommentEditing = {
     cwd: detail.workspaceRoot,
+    environmentId,
     canEdit: (comment) => canEditPullRequestComment(detail, comment),
     editingId: editingCommentId,
     saving: commentSaving,
@@ -682,6 +690,7 @@ export function PullRequestSummaryTab({
               allowEmpty
               value={detail.body}
               cwd={detail.workspaceRoot}
+              environmentId={environmentId}
               label="Pull request description"
               placeholder="Describe this pull request"
               saving={bodySaving}
@@ -694,6 +703,7 @@ export function PullRequestSummaryTab({
                 className="min-w-0 flex-1"
                 text={detail.body.trim().length > 0 ? detail.body : "_No description provided._"}
                 cwd={detail.workspaceRoot}
+                environmentId={environmentId}
               />
               {canEditPullRequestChangeRequest(detail) ? (
                 <Button
