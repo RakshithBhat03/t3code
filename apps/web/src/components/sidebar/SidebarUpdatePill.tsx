@@ -119,20 +119,31 @@ type ReleaseNotesPopoverTriggerControls = {
 };
 
 function SidebarUpdateReleaseNotesPopover({
+  enabled,
   renderTrigger,
+  showUpdateDetails,
   state,
   tooltip,
 }: {
-  readonly renderTrigger: (controls: ReleaseNotesPopoverTriggerControls) => ReactElement;
-  readonly state: NonNullable<ReturnType<typeof useDesktopUpdateState>>;
+  readonly enabled: boolean;
+  readonly renderTrigger: (controls?: ReleaseNotesPopoverTriggerControls) => ReactElement;
+  readonly showUpdateDetails: boolean;
+  readonly state: ReturnType<typeof useDesktopUpdateState>;
   readonly tooltip: string;
 }) {
   const [open, setOpen] = useState(false);
   const triggerFocusedRef = useRef(false);
 
+  useEffect(() => {
+    if (enabled) return;
+    triggerFocusedRef.current = false;
+    setOpen(false);
+  }, [enabled]);
+
   return (
     <Popover
       onOpenChange={(nextOpen, eventDetails) => {
+        if (!enabled) return;
         if (!nextOpen && eventDetails.reason === "trigger-hover" && triggerFocusedRef.current) {
           eventDetails.cancel();
           return;
@@ -140,24 +151,50 @@ function SidebarUpdateReleaseNotesPopover({
         if (!nextOpen) triggerFocusedRef.current = false;
         setOpen(nextOpen);
       }}
-      open={open}
+      open={enabled && open}
     >
-      <PopoverTrigger
-        closeDelay={120}
-        delay={150}
-        openOnHover
-        render={renderTrigger({ focusedRef: triggerFocusedRef, setOpen })}
-      />
-      <PopoverPopup
-        align="center"
-        className="max-w-[min(24rem,calc(100vw-2rem))]"
-        initialFocus={false}
-        side="top"
-        viewportClassName="max-h-[min(28rem,var(--available-height))] py-3"
-      >
-        <PopoverTitle className="sr-only">{tooltip}</PopoverTitle>
-        <SidebarUpdateReleaseNotes state={state} tooltip={tooltip} />
-      </PopoverPopup>
+      <Tooltip disabled={enabled}>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              closeDelay={120}
+              delay={150}
+              openOnHover={enabled}
+              render={renderTrigger(
+                enabled ? { focusedRef: triggerFocusedRef, setOpen } : undefined,
+              )}
+            />
+          }
+        />
+        <TooltipPopup
+          align="center"
+          side="top"
+          style={
+            showUpdateDetails
+              ? {
+                  background:
+                    "color-mix(in srgb, var(--update) 18%, color-mix(in srgb, var(--popover) var(--glass-opacity), transparent))",
+                  borderColor: "var(--update-foreground)",
+                }
+              : undefined
+          }
+          variant={showUpdateDetails ? "glass" : "default"}
+        >
+          {tooltip}
+        </TooltipPopup>
+      </Tooltip>
+      {state ? (
+        <PopoverPopup
+          align="center"
+          className="max-w-[min(24rem,calc(100vw-2rem))]"
+          initialFocus={false}
+          side="top"
+          viewportClassName="max-h-[min(28rem,var(--available-height))] py-3"
+        >
+          <PopoverTitle className="sr-only">{tooltip}</PopoverTitle>
+          <SidebarUpdateReleaseNotes state={state} tooltip={tooltip} />
+        </PopoverPopup>
+      ) : null}
     </Popover>
   );
 }
@@ -419,33 +456,13 @@ function SidebarUpdateControl() {
 
   return (
     <SidebarMenuItem className="ml-auto shrink-0">
-      {showReleaseNotesPopover && state ? (
-        <SidebarUpdateReleaseNotesPopover
-          renderTrigger={renderTrigger}
-          state={state}
-          tooltip={tooltip}
-        />
-      ) : (
-        <Tooltip>
-          <TooltipTrigger render={renderTrigger()} />
-          <TooltipPopup
-            align="center"
-            side="top"
-            style={
-              showUpdateDetails
-                ? {
-                    background:
-                      "color-mix(in srgb, var(--update) 18%, color-mix(in srgb, var(--popover) var(--glass-opacity), transparent))",
-                    borderColor: "var(--update-foreground)",
-                  }
-                : undefined
-            }
-            variant={showUpdateDetails ? "glass" : "default"}
-          >
-            {tooltip}
-          </TooltipPopup>
-        </Tooltip>
-      )}
+      <SidebarUpdateReleaseNotesPopover
+        enabled={showReleaseNotesPopover}
+        renderTrigger={renderTrigger}
+        showUpdateDetails={showUpdateDetails}
+        state={state}
+        tooltip={tooltip}
+      />
     </SidebarMenuItem>
   );
 }

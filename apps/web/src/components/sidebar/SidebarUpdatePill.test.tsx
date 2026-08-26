@@ -189,15 +189,18 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(trigger.props.onFocus).toBeTypeOf("function");
   });
 
-  it("mounts the stateful popover only while release notes are eligible", () => {
+  it("keeps one trigger host while release note eligibility changes", () => {
     const eligibleOutput = renderControlElement();
+    const eligiblePopover = findReleaseNotesPopover(eligibleOutput);
 
-    expect(findReleaseNotesPopover(eligibleOutput)).not.toBeNull();
+    expect(eligiblePopover?.props.enabled).toBe(true);
 
     testState.desktopUpdate = { ...availableState, status: "checking", releaseNotes: [] };
     const ineligibleOutput = renderControlElement();
+    const ineligiblePopover = findReleaseNotesPopover(ineligibleOutput);
 
-    expect(findReleaseNotesPopover(ineligibleOutput)).toBeNull();
+    expect(ineligiblePopover?.type).toBe(eligiblePopover?.type);
+    expect(ineligiblePopover?.props.enabled).toBe(false);
   });
 
   it("does not latch pointer focus for the hover popover", () => {
