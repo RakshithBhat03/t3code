@@ -167,6 +167,13 @@ function SidebarUpdateReleaseNotesPopover({
         <TooltipTrigger
           render={
             <PopoverTrigger
+              {...(!enabled
+                ? {
+                    "aria-controls": undefined,
+                    "aria-expanded": undefined,
+                    "aria-haspopup": undefined,
+                  }
+                : {})}
               closeDelay={120}
               delay={150}
               openOnHover={enabled}

@@ -461,4 +461,17 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(popoverTrigger).toBeNull();
     expect(findTrigger(output)).toBeDefined();
   });
+
+  it("removes popover semantics while only the tooltip is eligible", () => {
+    testState.desktopUpdate = { ...availableState, channel: "latest" };
+
+    const output = renderControl();
+    const popoverTrigger = visitElements(output, (element) => element.props.openOnHover === false);
+
+    expect(popoverTrigger).not.toBeNull();
+    expect(Object.hasOwn(popoverTrigger?.props ?? {}, "aria-controls")).toBe(true);
+    expect(popoverTrigger?.props["aria-controls"]).toBeUndefined();
+    expect(popoverTrigger?.props["aria-expanded"]).toBeUndefined();
+    expect(popoverTrigger?.props["aria-haspopup"]).toBeUndefined();
+  });
 });
