@@ -8,6 +8,7 @@ import { reactHookHarness as hooks } from "../../test/reactHookHarness";
 const testState = vi.hoisted(() => ({
   desktopUpdate: null as DesktopUpdateState | null,
   downloadUpdate: vi.fn<() => Promise<DesktopUpdateActionResult>>(),
+  effects: [] as Array<() => void | (() => void)>,
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -16,7 +17,7 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...actual,
     useCallback: reactHookHarness.useCallback,
-    useEffect: () => undefined,
+    useEffect: (effect: () => void | (() => void)) => testState.effects.push(effect),
     useRef: reactHookHarness.useRef,
     useState: reactHookHarness.useState,
   };
@@ -102,9 +103,14 @@ function installDesktopBridge() {
   });
 }
 
+function flushEffects() {
+  for (const effect of testState.effects.splice(0)) effect();
+}
+
 describe("SidebarUpdatePill release notes popover", () => {
   beforeEach(() => {
     hooks.reset();
+    testState.effects = [];
     testState.desktopUpdate = availableState;
     testState.downloadUpdate.mockReset();
     testState.downloadUpdate.mockResolvedValue({
@@ -202,6 +208,29 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(ineligiblePopover?.type).toBe(eligiblePopover?.type);
     expect(ineligiblePopover?.props.enabled).toBe(false);
   });
+
+  it.each([":hover", ":focus-visible"])(
+    "opens release notes when eligibility changes while the trigger matches %s",
+    (activeSelector) => {
+      testState.desktopUpdate = { ...availableState, status: "checking", releaseNotes: [] };
+      const ineligibleOutput = renderControl();
+      const trigger = findTrigger(ineligibleOutput);
+      const triggerRef = trigger.props.ref as {
+        current: { matches: (selector: string) => boolean } | null;
+      };
+      triggerRef.current = { matches: (selector) => selector === activeSelector };
+      flushEffects();
+
+      testState.desktopUpdate = availableState;
+      renderControl();
+      flushEffects();
+
+      const eligibleOutput = renderControl();
+      const openRoot = visitElements(eligibleOutput, (element) => element.props.open === true);
+
+      expect(openRoot).not.toBeNull();
+    },
+  );
 
   it("does not latch pointer focus for the hover popover", () => {
     const output = renderControl();

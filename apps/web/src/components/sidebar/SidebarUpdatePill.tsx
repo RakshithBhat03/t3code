@@ -116,6 +116,7 @@ function SidebarUpdateReleaseNotes({
 type ReleaseNotesPopoverTriggerControls = {
   readonly focusedRef: RefObject<boolean>;
   readonly setOpen: (open: boolean) => void;
+  readonly triggerRef: RefObject<HTMLButtonElement | null>;
 };
 
 function SidebarUpdateReleaseNotesPopover({
@@ -126,18 +127,27 @@ function SidebarUpdateReleaseNotesPopover({
   tooltip,
 }: {
   readonly enabled: boolean;
-  readonly renderTrigger: (controls?: ReleaseNotesPopoverTriggerControls) => ReactElement;
+  readonly renderTrigger: (controls: ReleaseNotesPopoverTriggerControls) => ReactElement;
   readonly showUpdateDetails: boolean;
   readonly state: ReturnType<typeof useDesktopUpdateState>;
   readonly tooltip: string;
 }) {
   const [open, setOpen] = useState(false);
   const triggerFocusedRef = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (enabled) return;
-    triggerFocusedRef.current = false;
-    setOpen(false);
+    if (!enabled) {
+      triggerFocusedRef.current = false;
+      setOpen(false);
+      return;
+    }
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const keyboardFocused = trigger.matches(":focus-visible");
+    triggerFocusedRef.current = keyboardFocused;
+    if (keyboardFocused || trigger.matches(":hover")) setOpen(true);
   }, [enabled]);
 
   return (
@@ -160,9 +170,11 @@ function SidebarUpdateReleaseNotesPopover({
               closeDelay={120}
               delay={150}
               openOnHover={enabled}
-              render={renderTrigger(
-                enabled ? { focusedRef: triggerFocusedRef, setOpen } : undefined,
-              )}
+              render={renderTrigger({
+                focusedRef: triggerFocusedRef,
+                setOpen,
+                triggerRef,
+              })}
             />
           }
         />
@@ -392,6 +404,7 @@ function SidebarUpdateControl() {
     showUpdateDetails && state?.channel === "nightly" && state.releaseNotes.length > 0;
   const renderTrigger = (releaseNotesPopover?: ReleaseNotesPopoverTriggerControls) => (
     <button
+      ref={releaseNotesPopover?.triggerRef}
       type="button"
       aria-label={tooltip}
       aria-disabled={isInteractionDisabled || undefined}
@@ -410,7 +423,7 @@ function SidebarUpdateControl() {
         disabled && !showUpdateIconState && "opacity-60",
       )}
       onBlur={
-        releaseNotesPopover
+        showReleaseNotesPopover && releaseNotesPopover
           ? (event) => {
               releaseNotesPopover.focusedRef.current = false;
               const popupId = event.currentTarget.getAttribute("aria-controls");
@@ -424,7 +437,7 @@ function SidebarUpdateControl() {
           : undefined
       }
       onFocus={
-        releaseNotesPopover
+        showReleaseNotesPopover && releaseNotesPopover
           ? (event) => {
               if (!event.currentTarget.matches(":focus-visible")) return;
               releaseNotesPopover.focusedRef.current = true;
