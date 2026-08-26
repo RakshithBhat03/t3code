@@ -6701,6 +6701,20 @@ function ChatViewContent(props: ChatViewProps) {
       {panelToggleControls}
     </div>
   );
+  const activePullRequestBelongsToThread =
+    activeRightPanelSurface?.kind === "pull-request" &&
+    isThreadOwnPullRequest(
+      {
+        projectId: linkedThreadPullRequest?.projectId ?? activeProject?.id ?? null,
+        repository: threadRepository,
+        number: activeThreadPr?.number ?? null,
+      },
+      {
+        projectId: activeRightPanelSurface.projectId,
+        repository: activeRightPanelSurface.repository,
+        number: activeRightPanelSurface.number,
+      },
+    );
   const rightPanelContent = activeThreadRef ? (
     activeRightPanelSurface?.kind === "preview" ? (
       <Suspense fallback={null}>
@@ -6755,7 +6769,9 @@ function ChatViewContent(props: ChatViewProps) {
       // is only right for the thread's own pull request, whose branch is already under the
       // reader's feet. A link the agent wrote can open any other one here, and that one has to be
       // checkable out like it is anywhere else.
-      <PullRequestThreadRefProvider threadRef={activeThreadRef}>
+      <PullRequestThreadRefProvider
+        threadRef={activePullRequestBelongsToThread ? activeThreadRef : undefined}
+      >
         <PullRequestDetailPanel
           key={`${activeRightPanelSurface.repository}#${activeRightPanelSurface.number}`}
           environmentId={activeThread.environmentId}
@@ -6764,22 +6780,7 @@ function ChatViewContent(props: ChatViewProps) {
             repository: activeRightPanelSurface.repository,
             number: activeRightPanelSurface.number,
           }}
-          context={
-            isThreadOwnPullRequest(
-              {
-                projectId: linkedThreadPullRequest?.projectId ?? activeProject?.id ?? null,
-                repository: threadRepository,
-                number: activeThreadPr?.number ?? null,
-              },
-              {
-                projectId: activeRightPanelSurface.projectId,
-                repository: activeRightPanelSurface.repository,
-                number: activeRightPanelSurface.number,
-              },
-            )
-              ? "thread"
-              : "page"
-          }
+          context={activePullRequestBelongsToThread ? "thread" : "page"}
           composerDraftTarget={composerDraftTarget}
           onStateChange={handlePullRequestTabStatusChange}
         />
