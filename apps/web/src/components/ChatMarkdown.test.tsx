@@ -1,6 +1,10 @@
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+const mocks = vi.hoisted(() => ({
+  useOpenChangeRequestLink: vi.fn(() => vi.fn()),
+}));
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }));
 vi.mock("../hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "dark" }) }));
@@ -25,7 +29,7 @@ vi.mock("~/lib/openPullRequestLink", () => ({
   findProjectForChangeRequest: () => undefined,
   matchesLinkedPullRequestUrl: () => false,
   parseChangeRequestUrl: () => null,
-  useOpenChangeRequestLink: () => vi.fn(),
+  useOpenChangeRequestLink: mocks.useOpenChangeRequestLink,
 }));
 
 import ChatMarkdown, {
@@ -101,6 +105,29 @@ describe("ChatMarkdown file option chips", () => {
     expect(html).toContain("<button");
     expect(html).toContain('aria-haspopup="menu"');
     expect(html).toContain("select-text");
+  });
+});
+
+describe("ChatMarkdown pull request links", () => {
+  it("uses a navigation-only thread without enabling thread file actions", () => {
+    const pullRequestLinkThreadRef = {
+      environmentId: EnvironmentId.make("environment-1"),
+      threadId: ThreadId.make("thread-1"),
+    };
+    mocks.useOpenChangeRequestLink.mockClear();
+
+    renderToStaticMarkup(
+      <ChatMarkdown
+        cwd="/foreign-workspace"
+        environmentId={pullRequestLinkThreadRef.environmentId}
+        pullRequestLinkThreadRef={pullRequestLinkThreadRef}
+        text="[Related pull request](https://github.com/pingdotgg/t3code/pull/6446)"
+      />,
+    );
+
+    expect(mocks.useOpenChangeRequestLink).toHaveBeenCalledExactlyOnceWith(
+      pullRequestLinkThreadRef,
+    );
   });
 });
 

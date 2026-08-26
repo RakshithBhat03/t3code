@@ -6770,7 +6770,8 @@ function ChatViewContent(props: ChatViewProps) {
       // reader's feet. A link the agent wrote can open any other one here, and that one has to be
       // checkable out like it is anywhere else.
       <PullRequestThreadRefProvider
-        threadRef={activePullRequestBelongsToThread ? activeThreadRef : undefined}
+        threadRef={activeThreadRef}
+        scopeWorkspaceToThread={activePullRequestBelongsToThread}
       >
         <PullRequestDetailPanel
           key={`${activeRightPanelSurface.repository}#${activeRightPanelSurface.number}`}

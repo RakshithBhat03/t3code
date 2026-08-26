@@ -28,7 +28,7 @@ describe("pull request markdown", () => {
 
   it("passes the owning thread to links rendered inside a thread panel", () => {
     renderToStaticMarkup(
-      <PullRequestThreadRefProvider threadRef={THREAD_REF}>
+      <PullRequestThreadRefProvider threadRef={THREAD_REF} scopeWorkspaceToThread>
         <PullRequestMarkdown
           text="[Related pull request](https://github.com/pingdotgg/t3code/pull/6446)"
           cwd="/workspace"
@@ -38,7 +38,31 @@ describe("pull request markdown", () => {
     );
 
     expect(mocks.chatMarkdown).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ environmentId: ENVIRONMENT_ID, threadRef: THREAD_REF }),
+      expect.objectContaining({
+        environmentId: ENVIRONMENT_ID,
+        pullRequestLinkThreadRef: THREAD_REF,
+        threadRef: THREAD_REF,
+      }),
+    );
+  });
+
+  it("keeps pull request navigation scoped without assigning foreign files to the thread", () => {
+    renderToStaticMarkup(
+      <PullRequestThreadRefProvider threadRef={THREAD_REF} scopeWorkspaceToThread={false}>
+        <PullRequestMarkdown
+          text="[Related pull request](https://github.com/pingdotgg/t3code/pull/6446)"
+          cwd="/foreign-workspace"
+          environmentId={ENVIRONMENT_ID}
+        />
+      </PullRequestThreadRefProvider>,
+    );
+
+    expect(mocks.chatMarkdown).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        environmentId: ENVIRONMENT_ID,
+        pullRequestLinkThreadRef: THREAD_REF,
+        threadRef: undefined,
+      }),
     );
   });
 
@@ -52,7 +76,11 @@ describe("pull request markdown", () => {
     );
 
     expect(mocks.chatMarkdown).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ environmentId: ENVIRONMENT_ID, threadRef: undefined }),
+      expect.objectContaining({
+        environmentId: ENVIRONMENT_ID,
+        pullRequestLinkThreadRef: undefined,
+        threadRef: undefined,
+      }),
     );
   });
 });

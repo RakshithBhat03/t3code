@@ -1,24 +1,38 @@
 import { ExternalLinkIcon, PaperclipIcon, PlayIcon } from "lucide-react";
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 import { cn } from "~/lib/utils";
 
 import ChatMarkdown from "../ChatMarkdown";
 import { splitPullRequestBody } from "./pullRequestMarkdown.logic";
 
-const PullRequestThreadRefContext = createContext<ScopedThreadRef | undefined>(undefined);
+interface PullRequestThreadScope {
+  readonly threadRef: ScopedThreadRef | undefined;
+  readonly scopeWorkspaceToThread: boolean;
+}
 
-/** Keeps links inside a thread-owned pull request panel beside that thread. */
+const PullRequestThreadRefContext = createContext<PullRequestThreadScope>({
+  threadRef: undefined,
+  scopeWorkspaceToThread: false,
+});
+
+/** Keeps pull request links beside a thread without assigning foreign files to its workspace. */
 export function PullRequestThreadRefProvider({
   threadRef,
+  scopeWorkspaceToThread,
   children,
 }: {
   threadRef: ScopedThreadRef | undefined;
+  scopeWorkspaceToThread: boolean;
   children: ReactNode;
 }) {
+  const value = useMemo(
+    () => ({ threadRef, scopeWorkspaceToThread }),
+    [scopeWorkspaceToThread, threadRef],
+  );
   return (
-    <PullRequestThreadRefContext.Provider value={threadRef}>
+    <PullRequestThreadRefContext.Provider value={value}>
       {children}
     </PullRequestThreadRefContext.Provider>
   );
@@ -46,7 +60,7 @@ export function PullRequestMarkdown({
   environmentId: EnvironmentId;
   className?: string;
 }) {
-  const threadRef = useContext(PullRequestThreadRefContext);
+  const threadScope = useContext(PullRequestThreadRefContext);
   const segments = splitPullRequestBody(text);
   return (
     <div className={cn("space-y-3", className)}>
@@ -58,7 +72,8 @@ export function PullRequestMarkdown({
               text={segment.text}
               cwd={cwd}
               environmentId={environmentId}
-              threadRef={threadRef}
+              threadRef={threadScope.scopeWorkspaceToThread ? threadScope.threadRef : undefined}
+              pullRequestLinkThreadRef={threadScope.threadRef}
             />
           );
         }
