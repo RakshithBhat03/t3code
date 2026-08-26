@@ -276,6 +276,86 @@ describe("SidebarUpdatePill release notes popover", () => {
     expect(blurredRoot).not.toBeNull();
   });
 
+  it("releases the focus latch when Base UI closes the popover", () => {
+    const output = renderControl();
+    const trigger = findTrigger(output);
+    const onFocus = trigger.props.onFocus as
+      | ((event: { currentTarget: { matches: () => boolean } }) => void)
+      | undefined;
+
+    onFocus?.({ currentTarget: { matches: () => true } });
+
+    const focusedOutput = renderControl();
+    const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
+    if (!focusedRoot) throw new Error("Expected focused update popover");
+    const onOpenChange = focusedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+
+    onOpenChange(false, { reason: "escape-key", cancel: vi.fn() });
+    onOpenChange(true, { reason: "trigger-hover", cancel: vi.fn() });
+
+    const reopenedOutput = renderControl();
+    const reopenedRoot = visitElements(reopenedOutput, (element) => element.props.open === true);
+    if (!reopenedRoot) throw new Error("Expected reopened update popover");
+    const onReopenedChange = reopenedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+    const cancelHoverClose = vi.fn();
+
+    onReopenedChange(false, { reason: "trigger-hover", cancel: cancelHoverClose });
+
+    const closedOutput = renderControl();
+    const closedRoot = visitElements(closedOutput, (element) => element.props.open === false);
+
+    expect(cancelHoverClose).not.toHaveBeenCalled();
+    expect(closedRoot).not.toBeNull();
+  });
+
+  it("releases the focus latch when keyboard activation runs the update action", () => {
+    const output = renderControl();
+    const trigger = findTrigger(output);
+    const onFocus = trigger.props.onFocus as
+      | ((event: { currentTarget: { matches: () => boolean } }) => void)
+      | undefined;
+
+    onFocus?.({ currentTarget: { matches: () => true } });
+
+    const focusedOutput = renderControl();
+    const focusedRoot = visitElements(focusedOutput, (element) => element.props.open === true);
+    const focusedTrigger = findTrigger(focusedOutput);
+    if (!focusedRoot) throw new Error("Expected focused update popover");
+    const onOpenChange = focusedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+    const onClick = focusedTrigger.props.onClick as
+      | ((event: { preventBaseUIHandler: () => void }) => void)
+      | undefined;
+
+    onClick?.({ preventBaseUIHandler: vi.fn() });
+    onOpenChange(true, { reason: "trigger-hover", cancel: vi.fn() });
+
+    const reopenedOutput = renderControl();
+    const reopenedRoot = visitElements(reopenedOutput, (element) => element.props.open === true);
+    if (!reopenedRoot) throw new Error("Expected reopened update popover");
+    const onReopenedChange = reopenedRoot.props.onOpenChange as (
+      open: boolean,
+      eventDetails: { reason: string; cancel: () => void },
+    ) => void;
+    const cancelHoverClose = vi.fn();
+
+    onReopenedChange(false, { reason: "trigger-hover", cancel: cancelHoverClose });
+
+    const closedOutput = renderControl();
+    const closedRoot = visitElements(closedOutput, (element) => element.props.open === false);
+
+    expect(cancelHoverClose).not.toHaveBeenCalled();
+    expect(closedRoot).not.toBeNull();
+  });
+
   it("closes focused release notes only after focus and pointer leave the popover", () => {
     const output = renderControl();
     const trigger = findTrigger(output);

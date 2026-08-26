@@ -137,6 +137,7 @@ function SidebarUpdateReleaseNotesPopover({
           eventDetails.cancel();
           return;
         }
+        if (!nextOpen) triggerFocusedRef.current = false;
         setOpen(nextOpen);
       }}
       open={open}
@@ -401,6 +402,7 @@ function SidebarUpdateControl() {
           }
         ).preventBaseUIHandler?.();
         if (isInteractionDisabled) return;
+        if (releaseNotesPopover) releaseNotesPopover.focusedRef.current = false;
         releaseNotesPopover?.setOpen(false);
         void handleAction();
       }}
