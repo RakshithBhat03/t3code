@@ -1128,7 +1128,7 @@ function ChatMarkdownResolvedImage({
       type="button"
       data-chat-markdown-image-expand
       className={cn(
-        "max-w-full touch-manipulation cursor-zoom-in rounded-lg bg-transparent p-0 align-top outline-none hover:ring-1 hover:ring-border/70 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "max-w-full touch-manipulation cursor-zoom-in rounded-lg bg-transparent p-0 align-top outline-none [&>img]:block hover:ring-1 hover:ring-border/70 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         containerClassName ?? "inline-block",
       )}
       aria-label={previewName === "Image" ? "Expand image" : `Expand image ${previewName}`}

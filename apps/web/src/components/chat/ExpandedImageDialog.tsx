@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
-import { Button, buttonVariants } from "../ui/button";
+import { Button } from "../ui/button";
 import type { ExpandedImagePreview } from "./ExpandedImagePreview";
 
 interface ExpandedImageDialogProps {
@@ -89,11 +89,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
               ref={closeButtonRef}
               data-expanded-image-dialog-close
               aria-label="Close image preview"
-              className={buttonVariants({
-                size: "icon-xs",
-                variant: "ghost",
-                className: "absolute right-2 top-2",
-              })}
+              render={<Button size="icon-xs" variant="ghost" className="absolute right-2 top-2" />}
             >
               <XIcon />
             </DialogPrimitive.Close>
