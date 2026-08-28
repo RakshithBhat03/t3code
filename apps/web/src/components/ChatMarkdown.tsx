@@ -52,6 +52,7 @@ import remarkGfm from "remark-gfm";
 import { remarkGithubAlerts } from "../markdown-github-alerts";
 import { renderSkillInlineMarkdownChildren } from "./chat/SkillInlineText";
 import { CHAT_FILE_TAG_CHIP_CLASS_NAME, FileTagChipContent } from "./chat/FileTagChip";
+import type { ExpandedImagePreview } from "./chat/ExpandedImagePreview";
 import { PierreEntryIcon } from "./chat/PierreEntryIcon";
 import {
   revealInFileExplorerLabelForKind,
@@ -142,6 +143,7 @@ interface ChatMarkdownProps {
   /** Environment that owns non-thread markdown, such as a pull request panel. */
   environmentId?: EnvironmentId | undefined;
   onTaskListChange?: ((input: { markerOffset: number; checked: boolean }) => void) | undefined;
+  onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
   isStreaming?: boolean;
   skills?: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
   className?: string;
@@ -242,6 +244,7 @@ type MarkdownHtmlAstNode = {
   tagName?: string;
   properties?: Record<string, unknown>;
   children?: MarkdownHtmlAstNode[];
+  data?: { t3LinkedImage?: boolean };
 };
 
 /** Preserve Windows drive paths through the protocol allowlist in rehype-sanitize. */
@@ -264,6 +267,21 @@ function rehypeNormalizeWindowsImageSrc() {
     };
 
     visit(tree);
+  };
+}
+
+/** Keep an explicit image link as navigation instead of nesting a zoom button inside it. */
+function rehypeMarkLinkedImages() {
+  return (tree: MarkdownHtmlAstNode) => {
+    const visit = (node: MarkdownHtmlAstNode, insideLink: boolean) => {
+      const nextInsideLink = insideLink || (node.type === "element" && node.tagName === "a");
+      if (nextInsideLink && node.type === "element" && node.tagName === "img") {
+        node.data = { ...node.data, t3LinkedImage: true };
+      }
+      node.children?.forEach((child) => visit(child, nextInsideLink));
+    };
+
+    visit(tree, false);
   };
 }
 
@@ -303,6 +321,7 @@ const CHAT_MARKDOWN_REHYPE_PLUGINS = [
   rehypeRaw,
   rehypeNormalizeWindowsImageSrc,
   [rehypeSanitize, CHAT_MARKDOWN_SANITIZE_SCHEMA],
+  rehypeMarkLinkedImages,
 ] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
 
 /** GitHub's own five alert kinds, in its colors: the glyph names the urgency, the title says it. */
@@ -1052,8 +1071,78 @@ const CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME =
 // rule, keeping workspace images on the same block layout as their placeholder.
 const CHAT_MARKDOWN_WORKSPACE_IMAGE_CLASS_NAME = cn(
   CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME,
-  "my-1 block! rounded-lg border border-border/40",
+  "block! rounded-lg border border-border/40",
 );
+
+type ChatMarkdownResolvedImageProps = Omit<React.ComponentPropsWithoutRef<"img">, "src" | "alt"> & {
+  readonly src: string;
+  readonly alt: string;
+  readonly previewName: string;
+  readonly linked: boolean;
+  readonly containerClassName?: string | undefined;
+  readonly unwrappedClassName?: string | undefined;
+  readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
+};
+
+function markdownImagePreviewName(alt: string, source: string): string {
+  const trimmedAlt = alt.trim();
+  if (trimmedAlt.length > 0) return trimmedAlt;
+
+  const path = source.split(/[?#]/, 1)[0]?.replaceAll("\\", "/") ?? "";
+  const encodedName = path.slice(path.lastIndexOf("/") + 1);
+  if (encodedName.length === 0 || encodedName.length > 160 || encodedName.includes(":")) {
+    return "Image";
+  }
+  try {
+    return decodeURIComponent(encodedName);
+  } catch {
+    return encodedName;
+  }
+}
+
+function ChatMarkdownResolvedImage({
+  src,
+  alt,
+  previewName,
+  linked,
+  containerClassName,
+  unwrappedClassName,
+  onImageExpand,
+  className,
+  ...props
+}: ChatMarkdownResolvedImageProps) {
+  const interactive = onImageExpand !== undefined && !linked;
+  const image = (
+    <img
+      {...props}
+      src={src}
+      alt={alt}
+      className={cn(className, !interactive && unwrappedClassName)}
+    />
+  );
+
+  if (!interactive) return image;
+
+  return (
+    <button
+      type="button"
+      data-chat-markdown-image-expand
+      className={cn(
+        "max-w-full touch-manipulation cursor-zoom-in rounded-lg bg-transparent p-0 align-top outline-none hover:ring-1 hover:ring-border/70 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        containerClassName ?? "inline-block",
+      )}
+      aria-label={previewName === "Image" ? "Expand image" : `Expand image ${previewName}`}
+      onClick={() =>
+        onImageExpand({
+          images: [{ src, name: previewName }],
+          index: 0,
+        })
+      }
+    >
+      {image}
+    </button>
+  );
+}
 
 function ChatMarkdownImageFallback(props: { readonly alt: string }) {
   return (
@@ -1069,6 +1158,8 @@ const ChatMarkdownWorkspaceImage = memo(function ChatMarkdownWorkspaceImage(prop
   readonly threadRef: ScopedThreadRef;
   readonly path: string;
   readonly alt: string;
+  readonly linked: boolean;
+  readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
 }) {
   const assetUrl = useAssetUrlState(props.threadRef.environmentId, {
     _tag: "workspace-file",
@@ -1090,9 +1181,14 @@ const ChatMarkdownWorkspaceImage = memo(function ChatMarkdownWorkspaceImage(prop
     );
   }
   return (
-    <img
+    <ChatMarkdownResolvedImage
       src={assetUrl.url}
       alt={props.alt}
+      previewName={markdownImagePreviewName(props.alt, props.path)}
+      linked={props.linked}
+      onImageExpand={props.onImageExpand}
+      containerClassName="my-1 block w-fit max-w-full"
+      unwrappedClassName="my-1"
       loading="lazy"
       draggable={false}
       className={CHAT_MARKDOWN_WORKSPACE_IMAGE_CLASS_NAME}
@@ -1631,6 +1727,7 @@ function ChatMarkdown({
   threadRef,
   environmentId: explicitEnvironmentId,
   onTaskListChange,
+  onImageExpand,
   isStreaming = false,
   skills = EMPTY_MARKDOWN_SKILLS,
   className,
@@ -2146,16 +2243,21 @@ function ChatMarkdown({
           </code>
         );
       },
-      img({ node: _node, title: _title, src, alt, ...props }) {
+      img({ node, title: _title, src, alt, ...props }) {
         const srcString = typeof src === "string" ? normalizeMarkdownLinkDestination(src) : "";
         const altText = alt ?? "";
+        const linked =
+          (node?.data as MarkdownHtmlAstNode["data"] | undefined)?.t3LinkedImage === true;
         const imageSource = classifyMarkdownImageSource(srcString, cwd);
         if (imageSource._tag === "Direct") {
           return (
-            <img
+            <ChatMarkdownResolvedImage
               {...props}
               src={imageSource.uri}
               alt={altText}
+              previewName={markdownImagePreviewName(altText, imageSource.uri)}
+              linked={linked}
+              onImageExpand={onImageExpand}
               loading="lazy"
               className={cn(props.className, CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME)}
             />
@@ -2167,6 +2269,8 @@ function ChatMarkdown({
               threadRef={threadRef}
               path={imageSource.path}
               alt={altText}
+              linked={linked}
+              onImageExpand={onImageExpand}
             />
           );
         }
@@ -2215,6 +2319,7 @@ function ChatMarkdown({
     inlineCodeFileLinkMetaByText,
     isStreaming,
     markdownFileLinkMetaByHref,
+    onImageExpand,
     onTaskListChange,
     openFileInPanel,
     openInPreferredEditor,

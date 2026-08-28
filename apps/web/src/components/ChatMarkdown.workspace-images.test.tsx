@@ -54,6 +54,17 @@ function render(markdown: string): string {
   );
 }
 
+function renderInteractive(markdown: string): string {
+  return renderToStaticMarkup(
+    <ChatMarkdown
+      cwd={"C:\\Users\\shawn\\project"}
+      threadRef={threadRef}
+      text={markdown}
+      onImageExpand={() => undefined}
+    />,
+  );
+}
+
 function renderWithoutThread(markdown: string): string {
   return renderToStaticMarkup(<ChatMarkdown cwd={"C:\\Users\\shawn\\project"} text={markdown} />);
 }
@@ -143,5 +154,30 @@ describe("ChatMarkdown workspace images", () => {
     expect(html).toContain("max-w-[min(100%,30rem)]");
     expect(html).toContain("max-h-[30rem]");
     expect(html).not.toContain("Image unavailable");
+  });
+
+  it("renders standalone workspace and remote images as accessible zoom buttons", () => {
+    const html = renderInteractive(
+      [
+        "![workspace chart](.t3/workspace-image.svg)",
+        "![](https://example.com/remote-image.png)",
+      ].join("\n\n"),
+    );
+
+    expect(html.match(/data-chat-markdown-image-expand/g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Expand image workspace chart"');
+    expect(html).toContain('aria-label="Expand image remote-image.png"');
+    expect(html).toContain("cursor-zoom-in");
+    expect(html).toContain("focus-visible:ring-2");
+  });
+
+  it("preserves an explicit image link instead of nesting a zoom button inside it", () => {
+    const html = renderInteractive(
+      "[![workspace chart](.t3/workspace-image.svg)](https://example.com/details)",
+    );
+
+    expect(html).toContain('href="https://example.com/details"');
+    expect(html).toContain('alt="workspace chart"');
+    expect(html).not.toContain("data-chat-markdown-image-expand");
   });
 });

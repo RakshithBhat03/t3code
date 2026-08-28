@@ -237,6 +237,20 @@ function buildAssistantTimelineEntry(text: string) {
 }
 
 describe("MessagesTimeline", () => {
+  it("makes standalone images in assistant messages expandable", () => {
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        timelineEntries={[
+          buildAssistantTimelineEntry("![generated chart](https://example.com/chart.png)"),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("data-chat-markdown-image-expand");
+    expect(markup).toContain('aria-label="Expand image generated chart"');
+  });
+
   it("renders a feedback command and its pending response as normal thread messages", () => {
     const submission = {
       id: MessageId.make("feedback-command"),
