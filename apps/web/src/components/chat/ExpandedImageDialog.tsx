@@ -28,12 +28,6 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-        return;
-      }
       if (preview.images.length <= 1) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -48,7 +42,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigateImage, onClose, preview.images.length]);
+  }, [navigateImage, preview.images.length]);
 
   const item = preview.images[index];
   if (!item) return null;
@@ -64,6 +58,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
         <DialogPrimitive.Popup
           initialFocus={closeButtonRef}
           finalFocus={() => restoreFocusRef.current}
+          data-slot="dialog-popup"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 outline-none [-webkit-app-region:no-drag]"
           aria-label="Expanded image preview"
         >
