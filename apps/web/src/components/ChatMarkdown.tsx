@@ -42,7 +42,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import type { Components, Options as ReactMarkdownOptions } from "react-markdown";
+import type { Components, ExtraProps, Options as ReactMarkdownOptions } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import { defaultUrlTransform } from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -1084,6 +1084,18 @@ type ChatMarkdownResolvedImageProps = Omit<React.ComponentPropsWithoutRef<"img">
   readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
 };
 
+interface ChatMarkdownImageRenderContextValue {
+  readonly cwd: string | undefined;
+  readonly threadRef: ScopedThreadRef | undefined;
+  readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
+}
+
+const ChatMarkdownImageRenderContext = React.createContext<ChatMarkdownImageRenderContextValue>({
+  cwd: undefined,
+  threadRef: undefined,
+  onImageExpand: undefined,
+});
+
 function markdownImagePreviewName(alt: string, source: string): string {
   const trimmedAlt = alt.trim();
   if (trimmedAlt.length > 0) return trimmedAlt;
@@ -1196,6 +1208,46 @@ const ChatMarkdownWorkspaceImage = memo(function ChatMarkdownWorkspaceImage(prop
     />
   );
 });
+
+function ChatMarkdownImageRenderer({
+  node,
+  title: _title,
+  src,
+  alt,
+  ...props
+}: React.ComponentPropsWithoutRef<"img"> & ExtraProps) {
+  const { cwd, threadRef, onImageExpand } = use(ChatMarkdownImageRenderContext);
+  const srcString = typeof src === "string" ? normalizeMarkdownLinkDestination(src) : "";
+  const altText = alt ?? "";
+  const linked = (node?.data as MarkdownHtmlAstNode["data"] | undefined)?.t3LinkedImage === true;
+  const imageSource = classifyMarkdownImageSource(srcString, cwd);
+  if (imageSource._tag === "Direct") {
+    return (
+      <ChatMarkdownResolvedImage
+        {...props}
+        src={imageSource.uri}
+        alt={altText}
+        previewName={markdownImagePreviewName(altText, imageSource.uri)}
+        linked={linked}
+        onImageExpand={onImageExpand}
+        loading="lazy"
+        className={cn(props.className, CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME)}
+      />
+    );
+  }
+  if (imageSource._tag === "WorkspaceFile" && threadRef) {
+    return (
+      <ChatMarkdownWorkspaceImage
+        threadRef={threadRef}
+        path={imageSource.path}
+        alt={altText}
+        linked={linked}
+        onImageExpand={onImageExpand}
+      />
+    );
+  }
+  return <ChatMarkdownImageFallback alt={altText} />;
+}
 
 function leadingExternalLinkTextLength(text: string): number {
   const protocol = /^(?:https?:\/\/)/i.exec(text)?.[0];
@@ -1984,6 +2036,10 @@ function ChatMarkdown({
     },
     [cwd, findWorkspaceBasenameMatch, revealFileInFileManager],
   );
+  const imageRenderContext = useMemo<ChatMarkdownImageRenderContextValue>(
+    () => ({ cwd, threadRef, onImageExpand }),
+    [cwd, onImageExpand, threadRef],
+  );
   /* eslint-disable react/no-unstable-nested-components -- ReactMarkdown requires component
    * renderers that close over this message's metadata. useMemo keeps them stable until that
    * metadata changes. */
@@ -2243,39 +2299,7 @@ function ChatMarkdown({
           </code>
         );
       },
-      img({ node, title: _title, src, alt, ...props }) {
-        const srcString = typeof src === "string" ? normalizeMarkdownLinkDestination(src) : "";
-        const altText = alt ?? "";
-        const linked =
-          (node?.data as MarkdownHtmlAstNode["data"] | undefined)?.t3LinkedImage === true;
-        const imageSource = classifyMarkdownImageSource(srcString, cwd);
-        if (imageSource._tag === "Direct") {
-          return (
-            <ChatMarkdownResolvedImage
-              {...props}
-              src={imageSource.uri}
-              alt={altText}
-              previewName={markdownImagePreviewName(altText, imageSource.uri)}
-              linked={linked}
-              onImageExpand={onImageExpand}
-              loading="lazy"
-              className={cn(props.className, CHAT_MARKDOWN_IMAGE_SIZE_CLASS_NAME)}
-            />
-          );
-        }
-        if (imageSource._tag === "WorkspaceFile" && threadRef) {
-          return (
-            <ChatMarkdownWorkspaceImage
-              threadRef={threadRef}
-              path={imageSource.path}
-              alt={altText}
-              linked={linked}
-              onImageExpand={onImageExpand}
-            />
-          );
-        }
-        return <ChatMarkdownImageFallback alt={altText} />;
-      },
+      img: ChatMarkdownImageRenderer,
       table({ node: _node, ...props }) {
         return <MarkdownTable {...props} />;
       },
@@ -2349,17 +2373,19 @@ function ChatMarkdown({
       )}
       onCopy={handleCopy}
     >
-      <ReactMarkdown
-        remarkPlugins={
-          lineBreaks ? CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS : CHAT_MARKDOWN_REMARK_PLUGINS
-        }
-        rehypePlugins={parseRawHtml ? CHAT_MARKDOWN_REHYPE_PLUGINS : undefined}
-        skipHtml={false}
-        components={markdownComponents}
-        urlTransform={markdownUrlTransform}
-      >
-        {text}
-      </ReactMarkdown>
+      <ChatMarkdownImageRenderContext value={imageRenderContext}>
+        <ReactMarkdown
+          remarkPlugins={
+            lineBreaks ? CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS : CHAT_MARKDOWN_REMARK_PLUGINS
+          }
+          rehypePlugins={parseRawHtml ? CHAT_MARKDOWN_REHYPE_PLUGINS : undefined}
+          skipHtml={false}
+          components={markdownComponents}
+          urlTransform={markdownUrlTransform}
+        >
+          {text}
+        </ReactMarkdown>
+      </ChatMarkdownImageRenderContext>
     </div>
   );
 }
