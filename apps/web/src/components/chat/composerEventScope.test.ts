@@ -35,6 +35,13 @@ describe("composer event scopes", () => {
     expect(isInsideRestingComposerControlScope(target as unknown as EventTarget)).toBe(true);
   });
 
+  it("keeps collapsed banner actions from expanding the resting composer", () => {
+    vi.stubGlobal("Element", FakeElement);
+
+    const target = new FakeElement('[data-chat-composer-collapsed-controls="true"]');
+    expect(isInsideRestingComposerControlScope(target as unknown as EventTarget)).toBe(true);
+  });
+
   it("includes composer-owned floating layers in the resting control scope", () => {
     vi.stubGlobal("Element", FakeElement);
 

@@ -4564,13 +4564,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         if (composerControlsInStrip && isInsideRestingComposerControlScope(activeElement)) {
           return;
         }
-        if (
-          isComposerCollapsedMobile &&
-          activeElement instanceof HTMLElement &&
-          activeElement.closest('[data-chat-composer-collapsed-controls="true"]')
-        ) {
-          return;
-        }
         // Focus returning from another window or tab lands on the element
         // that already held it, which is not a request to expand a
         // scroll-collapsed composer.
