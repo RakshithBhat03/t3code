@@ -2388,8 +2388,8 @@ function RevertUserMessageButton({
  * carries `group/timeline-row`; hover or focus on an existing control reveals
  * the time without adding a tab stop. Hidden timestamps stay outside the row
  * layout. Visibility changes immediately so leaving flow cannot overlap text
- * during a fade-out. Place it before any trailing disclosure control so
- * revealing the time does not move the chevron.
+ * during a fade-out. Place it before trailing actions and disclosure controls
+ * so revealing the time does not move their click targets.
  */
 function TimelineRowTimestamp({
   createdAt,
@@ -5167,6 +5167,7 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
       }
       trailing={
         <>
+          <TimelineRowTimestamp createdAt={workEntry.createdAt} timestampFormat={timestampFormat} />
           {createdThread ? (
             <button
               type="button"
@@ -5198,7 +5199,6 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
           !toolIconAcceptsTint(entryIconName, entryToolIcon) ? (
             <XIcon aria-hidden className={cn("size-3 shrink-0", failedToolIconClassName)} />
           ) : null}
-          <TimelineRowTimestamp createdAt={workEntry.createdAt} timestampFormat={timestampFormat} />
           <span
             className={cn(
               "flex size-4 shrink-0 items-center justify-center",
