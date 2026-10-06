@@ -661,9 +661,7 @@ export function applyToProjection(
     case "thread.pinned":
     case "thread.unpinned":
     case "thread.pin-reordered":
-    case "thread.active-reordered":
     case "thread.metadata-updated":
-    case "thread.pull-request-synced":
     case "thread.runtime-mode-updated":
     case "thread.interaction-mode-updated":
     case "thread.model-selection-updated":
@@ -671,6 +669,15 @@ export function applyToProjection(
       return {
         ...base,
         thread: event.payload,
+      };
+    // Arranging and background PR refreshes are not activity: keep the
+    // timestamp the orchestrator chose, as the SQL projection does.
+    case "thread.active-reordered":
+    case "thread.pull-request-synced":
+      return {
+        ...base,
+        thread: event.payload,
+        updatedAt: event.payload.updatedAt,
       };
     // Visited tracking is read state, not activity: skip the updatedAt bump so
     // viewing a thread does not surface it as recently active.
