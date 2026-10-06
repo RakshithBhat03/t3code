@@ -1458,7 +1458,7 @@ export function threadShellFromProjection(
     itemCount: activeLocalTurnItems(projection).length,
     visibleItemCount: projection.visibleTurnItems.length,
     createdAt: projection.thread.createdAt,
-    updatedAt: projection.updatedAt,
+    updatedAt: projection.thread.updatedAt,
     archivedAt: projection.thread.archivedAt,
     settledOverride: projection.thread.settledOverride,
     settledAt: projection.thread.settledAt,
@@ -2597,9 +2597,11 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           event.type !== "thread.pinned" &&
           event.type !== "thread.unpinned" &&
           event.type !== "thread.pin-reordered" &&
+          event.type !== "thread.active-reordered" &&
           event.type !== "thread.visited" &&
           event.type !== "thread.marked-unread" &&
           event.type !== "thread.metadata-updated" &&
+          event.type !== "thread.pull-request-synced" &&
           event.type !== "thread.runtime-mode-updated" &&
           event.type !== "thread.interaction-mode-updated" &&
           event.type !== "thread.model-selection-updated" &&
