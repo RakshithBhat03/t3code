@@ -1267,7 +1267,7 @@ describe("resolveThreadStatusPill", () => {
       }),
     ).toMatchObject({
       label: "Waiting",
-      colorClass: "text-sky-600/70 dark:text-sky-300/60",
+      colorClass: "text-sky-700 dark:text-sky-300/60",
       dotClass: "bg-sky-500/60 dark:bg-sky-300/50",
       pulse: false,
     });
@@ -1404,7 +1404,7 @@ describe("resolveProjectStatusIndicator", () => {
   it("ranks waiting below active work and above plan-ready", () => {
     const waiting = {
       label: "Waiting" as const,
-      colorClass: "text-sky-600/70 dark:text-sky-300/60",
+      colorClass: "text-sky-700 dark:text-sky-300/60",
       dotClass: "bg-sky-500/60 dark:bg-sky-300/50",
       pulse: false,
     };

@@ -1209,7 +1209,7 @@ export function resolveThreadStatusPill(input: {
   if (backgroundWorkHoldsCompletion(thread.pendingBackgroundTasks ?? [])) {
     return {
       label: "Waiting",
-      colorClass: "text-sky-600/70 dark:text-sky-300/60",
+      colorClass: "text-sky-700 dark:text-sky-300/60",
       dotClass: "bg-sky-500/60 dark:bg-sky-300/50",
       pulse: false,
     };
