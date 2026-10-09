@@ -216,8 +216,15 @@ export function resolveMaximizedNormalBounds(
     return normalBounds;
   }
   const { workArea } = display;
-  const width = Math.min(normalBounds.width, workArea.width);
-  const height = Math.min(normalBounds.height, workArea.height);
+  // Never below the persistable minimum, or a small work area drops the save.
+  const width = Math.max(
+    DesktopAppSettings.MIN_MAIN_WINDOW_SIZE.width,
+    Math.min(normalBounds.width, workArea.width),
+  );
+  const height = Math.max(
+    DesktopAppSettings.MIN_MAIN_WINDOW_SIZE.height,
+    Math.min(normalBounds.height, workArea.height),
+  );
   return {
     x: workArea.x + Math.round((workArea.width - width) / 2),
     y: workArea.y + Math.round((workArea.height - height) / 2),

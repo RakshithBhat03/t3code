@@ -629,6 +629,13 @@ describe("DesktopWindow", () => {
       ),
       { x: 420, y: 30, width: 1080, height: 1050 },
     );
+
+    const smallDisplay = {
+      bounds: { x: 0, y: 0, width: 800, height: 600 },
+      workArea: { x: 0, y: 25, width: 800, height: 575 },
+    };
+    const resized = DesktopWindow.resolveMaximizedNormalBounds(onPortrait, smallDisplay);
+    assert.deepEqual(DesktopAppSettings.normalizeMainWindowBounds(resized), resized);
   });
 
   it("recognizes only same-origin renderer navigations", () => {
