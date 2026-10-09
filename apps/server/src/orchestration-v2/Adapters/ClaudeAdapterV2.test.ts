@@ -8108,109 +8108,117 @@ describe("ClaudeAdapterV2 background wake turns", () => {
   );
 
   it.effect.each([
-    { requested: undefined, expected: "max" },
-    { requested: "low", expected: "low" },
-  ])("records the effort a subagent runs at (Agent effort $requested)", ({ requested, expected }) =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const harness = yield* makeWakeHarness;
-        const now = yield* DateTime.now;
-        const toolUseId = "toolu-subagent-effort";
-        const parentSelection = {
-          instanceId: CLAUDE_TEST_MODEL_SELECTION.instanceId,
-          model: "claude-opus-4-6",
-          options: [
-            { id: "effort", value: "max" },
-            { id: "fastMode", value: false },
-          ],
-        } satisfies ModelSelection;
-        yield* harness.runtime.startTurn(
-          makeClaudeTestTurnInput({
-            threadId: harness.threadId,
-            providerThread: harness.providerThread,
-            now,
-            attemptId: RunAttemptId.make("attempt-subagent-effort"),
-            text: "Spawn a subagent.",
-            attachments: [],
-            modelSelection: parentSelection,
-          }),
-        );
-        for (const frame of [
-          claudeSdkFrame({
-            type: "assistant",
-            parent_tool_use_id: null,
-            message: {
-              model: parentSelection.model,
-              id: "msg_subagent_effort_launch",
-              type: "message",
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  id: toolUseId,
-                  name: "Agent",
-                  input: {
-                    description: "Research",
-                    subagent_type: "general-purpose",
-                    model: "opus",
-                    ...(requested === undefined ? {} : { effort: requested }),
-                    prompt: "Research the topic.",
+    { agentModel: "opus", slug: "claude-opus-5-5", requested: undefined, expected: "max" },
+    { agentModel: "opus", slug: "claude-opus-5-5", requested: "low", expected: "low" },
+    // claude-haiku-4-5 offers no effort, so none is sent or shown for it.
+    { agentModel: "haiku-4.5", slug: "claude-haiku-4-5", requested: undefined, expected: null },
+  ])(
+    "records the effort a $agentModel subagent runs at (Agent effort $requested)",
+    ({ agentModel, slug, requested, expected }) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const harness = yield* makeWakeHarness;
+          const now = yield* DateTime.now;
+          const toolUseId = "toolu-subagent-effort";
+          const parentSelection = {
+            instanceId: CLAUDE_TEST_MODEL_SELECTION.instanceId,
+            model: "claude-opus-4-6",
+            options: [
+              { id: "effort", value: "max" },
+              { id: "fastMode", value: false },
+            ],
+          } satisfies ModelSelection;
+          yield* harness.runtime.startTurn(
+            makeClaudeTestTurnInput({
+              threadId: harness.threadId,
+              providerThread: harness.providerThread,
+              now,
+              attemptId: RunAttemptId.make("attempt-subagent-effort"),
+              text: "Spawn a subagent.",
+              attachments: [],
+              modelSelection: parentSelection,
+            }),
+          );
+          for (const frame of [
+            claudeSdkFrame({
+              type: "assistant",
+              parent_tool_use_id: null,
+              message: {
+                model: parentSelection.model,
+                id: "msg_subagent_effort_launch",
+                type: "message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: toolUseId,
+                    name: "Agent",
+                    input: {
+                      description: "Research",
+                      subagent_type: "general-purpose",
+                      model: agentModel,
+                      ...(requested === undefined ? {} : { effort: requested }),
+                      prompt: "Research the topic.",
+                    },
                   },
-                },
-              ],
-            },
-            uuid: "00000000-0000-4000-8000-000000000211",
-            session_id: WAKE_NATIVE_SESSION,
-          }),
-          claudeSdkFrame({
-            type: "system",
-            subtype: "task_started",
-            task_id: "task-subagent-effort",
-            tool_use_id: toolUseId,
-            description: "Research",
-            task_type: "local_agent",
-            uuid: "00000000-0000-4000-8000-000000000212",
-            session_id: WAKE_NATIVE_SESSION,
-          }),
-          // The reply names the model the alias resolved to.
-          claudeSdkFrame({
-            type: "assistant",
-            parent_tool_use_id: toolUseId,
-            message: {
-              model: "claude-opus-5-5",
-              id: "msg_subagent_effort_observed",
-              type: "message",
-              role: "assistant",
-              content: [{ type: "text", text: "Researching." }],
-            },
-            uuid: "00000000-0000-4000-8000-000000000213",
-            session_id: WAKE_NATIVE_SESSION,
-          }),
-          makeResultFrame({
-            uuid: "00000000-0000-4000-8000-000000000214",
-            result: "Spawned the subagent.",
-          }),
-        ]) {
-          yield* Queue.offer(harness.sdkMessages, frame);
-        }
-        yield* Queue.take(harness.terminalReceipts);
+                ],
+              },
+              uuid: "00000000-0000-4000-8000-000000000211",
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            claudeSdkFrame({
+              type: "system",
+              subtype: "task_started",
+              task_id: "task-subagent-effort",
+              tool_use_id: toolUseId,
+              description: "Research",
+              task_type: "local_agent",
+              uuid: "00000000-0000-4000-8000-000000000212",
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            // The reply names the model the alias resolved to.
+            claudeSdkFrame({
+              type: "assistant",
+              parent_tool_use_id: toolUseId,
+              message: {
+                model: slug,
+                id: "msg_subagent_effort_observed",
+                type: "message",
+                role: "assistant",
+                content: [{ type: "text", text: "Researching." }],
+              },
+              uuid: "00000000-0000-4000-8000-000000000213",
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+            makeResultFrame({
+              uuid: "00000000-0000-4000-8000-000000000214",
+              result: "Spawned the subagent.",
+            }),
+          ]) {
+            yield* Queue.offer(harness.sdkMessages, frame);
+          }
+          yield* Queue.take(harness.terminalReceipts);
 
-        // The alias is stored as its slug, so the reply is no model change,
-        // and the parent's fast mode stays with the parent.
-        const subagentSelection = {
-          instanceId: parentSelection.instanceId,
-          model: "claude-opus-5-5",
-          options: [{ id: "effort", value: expected }],
-        };
-        const child = harness.events.find((event) => event.type === "app_thread.created");
-        assert.deepEqual(child?.appThread.modelSelection, subagentSelection);
-        const subagents = harness.events.filter((event) => event.type === "subagent.updated");
-        assert.deepEqual(
-          subagents.map((event) => event.subagent.modelSelection),
-          subagents.map(() => subagentSelection),
-        );
-      }).pipe(Effect.provide(Layer.merge(IdAllocator.layer, NodeServices.layer))),
-    ),
+          // The alias is stored as its slug, so the reply is no model change,
+          // and the parent's fast mode stays with the parent.
+          const subagentSelection = {
+            instanceId: parentSelection.instanceId,
+            model: slug,
+            ...(expected === null ? {} : { options: [{ id: "effort", value: expected }] }),
+          };
+          const child = harness.events.find((event) => event.type === "app_thread.created");
+          assert.deepEqual(child?.appThread.modelSelection, subagentSelection);
+          const subagents = harness.events.filter((event) => event.type === "subagent.updated");
+          assert.deepEqual(
+            subagents.map((event) => event.subagent.modelSelection),
+            subagents.map(() => subagentSelection),
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+          ),
+        ),
+      ),
   );
 
   it.effect("gives a nested subagent its own effort, else the one its owner runs at", () =>

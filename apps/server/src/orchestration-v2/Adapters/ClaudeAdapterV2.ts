@@ -99,6 +99,7 @@ import {
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
   resolveClaudeCatalogContextWindowTokens,
+  getClaudeCatalogModelCapabilities,
   resolveClaudeModelSlug,
 } from "../../provider/ClaudeModelCatalog.ts";
 import {
@@ -2884,6 +2885,26 @@ function canonicalClaudeSubagentModel(model: string): string {
   return resolveClaudeModelSlug(BUNDLED_CLAUDE_MODEL_CATALOG, model);
 }
 
+/**
+ * The selection a subagent's thread shows. An effort its model does not offer
+ * is not sent for it, so it is left out (a nested subagent still inherits it).
+ */
+function claudeSubagentModelSelection(
+  instanceId: ModelSelection["instanceId"],
+  model: string,
+  effort: string | undefined,
+): ModelSelection {
+  const descriptor = getClaudeCatalogModelCapabilities(
+    BUNDLED_CLAUDE_MODEL_CATALOG,
+    model,
+  ).optionDescriptors?.find((candidate) => candidate.id === "effort");
+  const offered =
+    effort !== undefined &&
+    descriptor?.type === "select" &&
+    descriptor.options.some((option) => option.id === effort);
+  return { instanceId, model, ...(offered ? { options: [{ id: "effort", value: effort }] } : {}) };
+}
+
 const PENDING_CLAUDE_SUBAGENT_CAP = 64;
 // Per-subagent bound on frames held while waiting for task_started.
 const PENDING_CLAUDE_SUBAGENT_FRAME_CAP = 256;
@@ -4333,11 +4354,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             // restart. The parent's other options belong to the parent's session.
             ...(existingSubagent === undefined || existingSubagent.task.modelSelection !== undefined
               ? {
-                  modelSelection: {
-                    instanceId: input.context.input.modelSelection.instanceId,
-                    model: model || input.context.input.modelSelection.model,
-                    ...(effort === undefined ? {} : { options: [{ id: "effort", value: effort }] }),
-                  },
+                  modelSelection: claudeSubagentModelSelection(
+                    input.context.input.modelSelection.instanceId,
+                    model || input.context.input.modelSelection.model,
+                    effort,
+                  ),
                 }
               : {}),
             ...(input.progress === undefined ? {} : { progress: input.progress }),

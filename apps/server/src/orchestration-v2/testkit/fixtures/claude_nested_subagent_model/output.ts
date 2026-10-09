@@ -46,18 +46,10 @@ export function assertClaudeNestedSubagentModelOutput(
   // only that snapshot can say who launched it and on which model.
   assert.equal(nested.parentNodeId, outer.id, "a nested subagent hangs off its owner");
   assert.equal(nested.model, SUBAGENT_MODEL, "a nested subagent runs on its owner's model");
-  // No Agent call names an effort, so both run at the one the session sends
-  // (claude-sonnet-4-6's default).
-  assert.deepEqual(outer.modelSelection, {
-    instanceId: outer.providerInstanceId,
-    model: SUBAGENT_MODEL,
-    options: [{ id: "effort", value: "high" }],
-  });
-  assert.deepEqual(
-    nested.modelSelection,
-    outer.modelSelection,
-    "a nested subagent with no effort of its own runs at its owner's",
-  );
+  // The session's effort is not sent for claude-haiku-4-5, which offers none.
+  const subagentSelection = { instanceId: outer.providerInstanceId, model: SUBAGENT_MODEL };
+  assert.deepEqual(outer.modelSelection, subagentSelection);
+  assert.deepEqual(nested.modelSelection, subagentSelection);
   const nestedNode = projection.nodes.find((node) => node.id === nested.id);
   assert.isDefined(nestedNode);
   assert.equal(nestedNode.parentNodeId, outer.id);
