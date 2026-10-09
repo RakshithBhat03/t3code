@@ -99,8 +99,10 @@ import {
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
   resolveClaudeCatalogContextWindowTokens,
+  type ClaudeModelCatalog,
   getClaudeCatalogModelCapabilities,
   resolveClaudeModelSlug,
+  scopeClaudeModelCatalog,
 } from "../../provider/ClaudeModelCatalog.ts";
 import {
   boundProviderEventForLogging,
@@ -2879,10 +2881,11 @@ interface PendingClaudeSubagentLaunch {
  * Agent calls name aliases ("opus") and replies name dated ids; both resolve
  * to the catalog slug. A subagent's thread then keeps one model name across
  * its launch, its replies and a resume after a restart, so a later report of
- * the same model never reads as a model change that drops its effort.
+ * the same model never reads as a model change that drops its effort. The
+ * catalog is the instance's, so a custom model keeps its own name.
  */
-function canonicalClaudeSubagentModel(model: string): string {
-  return resolveClaudeModelSlug(BUNDLED_CLAUDE_MODEL_CATALOG, model);
+function canonicalClaudeSubagentModel(catalog: ClaudeModelCatalog, model: string): string {
+  return resolveClaudeModelSlug(catalog, model);
 }
 
 /**
@@ -2890,14 +2893,14 @@ function canonicalClaudeSubagentModel(model: string): string {
  * is not sent for it, so it is left out (a nested subagent still inherits it).
  */
 function claudeSubagentModelSelection(
+  catalog: ClaudeModelCatalog,
   instanceId: ModelSelection["instanceId"],
   model: string,
   effort: string | undefined,
 ): ModelSelection {
-  const descriptor = getClaudeCatalogModelCapabilities(
-    BUNDLED_CLAUDE_MODEL_CATALOG,
-    model,
-  ).optionDescriptors?.find((candidate) => candidate.id === "effort");
+  const descriptor = getClaudeCatalogModelCapabilities(catalog, model).optionDescriptors?.find(
+    (candidate) => candidate.id === "effort",
+  );
   const offered =
     effort !== undefined &&
     descriptor?.type === "select" &&
@@ -2931,6 +2934,7 @@ function rememberPendingClaudeSubagentLaunch(
  * starts back to it.
  */
 function rememberClaudeSubagentLaunch(
+  catalog: ClaudeModelCatalog,
   context: ActiveClaudeTurnContext,
   pending: Map<string, PendingClaudeSubagentLaunch>,
   toolUseId: string,
@@ -2943,7 +2947,7 @@ function rememberClaudeSubagentLaunch(
   // task_started resolves it.
   const model =
     requested !== "inherit"
-      ? requested && canonicalClaudeSubagentModel(requested)
+      ? requested && canonicalClaudeSubagentModel(catalog, requested)
       : ownerToolUseId === null
         ? context.input.modelSelection.model
         : undefined;
@@ -3103,6 +3107,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
 ) {
   const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
   const { attachmentsDir, fileSystem, path, crypto, idAllocator, queryRunner } = adapterOptions;
+  // Subagent model names and effort levels, including the instance's custom models.
+  const subagentModelCatalog = scopeClaudeModelCatalog(
+    BUNDLED_CLAUDE_MODEL_CATALOG,
+    adapterOptions.settings.customModels,
+  );
   const continuationRequests = adapterOptions.continuationRequests ?? {
     offer: () => Effect.void,
   };
@@ -4355,6 +4364,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(existingSubagent === undefined || existingSubagent.task.modelSelection !== undefined
               ? {
                   modelSelection: claudeSubagentModelSelection(
+                    subagentModelCatalog,
                     input.context.input.modelSelection.instanceId,
                     model || input.context.input.modelSelection.model,
                     effort,
@@ -6230,7 +6240,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             const snapshotModel =
               typeof message.message.model === "string" ? message.message.model.trim() : "";
             const model =
-              snapshotModel.length === 0 ? undefined : canonicalClaudeSubagentModel(snapshotModel);
+              snapshotModel.length === 0
+                ? undefined
+                : canonicalClaudeSubagentModel(subagentModelCatalog, snapshotModel);
             if (parentToolUseId !== null && model !== undefined) {
               const subagent = yield* resolveSubagentByToolUseId(context, parentToolUseId);
               if (subagent === undefined) {
@@ -6439,6 +6451,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             const nativeToolInput = claudeNativeToolInputFromUnknown(toolUse.input);
             if (toolUse.name === "Agent") {
               rememberClaudeSubagentLaunch(
+                subagentModelCatalog,
                 context,
                 pendingSubagentLaunchesByToolUseId,
                 toolUse.id,
@@ -7037,6 +7050,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           const heldForEcho = context.heldRootFrames.length > 0;
           if (toolName === "Agent") {
             rememberClaudeSubagentLaunch(
+              subagentModelCatalog,
               context,
               pendingSubagentLaunchesByToolUseId,
               nativeRequestId,

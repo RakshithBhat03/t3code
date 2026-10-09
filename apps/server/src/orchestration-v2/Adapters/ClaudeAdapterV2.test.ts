@@ -74,6 +74,29 @@ const DEFAULT_CLAUDE_SETTINGS = Schema.decodeSync(ClaudeSettings)({});
 const AUTO_COMPACT_CLAUDE_SETTINGS = Schema.decodeSync(ClaudeSettings)({
   autoCompactWindow: "300000",
 });
+const CUSTOM_MODEL_CLAUDE_SETTINGS = Schema.decodeSync(ClaudeSettings)({
+  customModels: [
+    // A bare custom slug that shadows the built-in "opus" alias.
+    "opus",
+    {
+      slug: "claude-custom-tuned",
+      name: "Tuned",
+      capabilities: {
+        optionDescriptors: [
+          {
+            id: "effort",
+            label: "Reasoning",
+            type: "select",
+            options: [
+              { id: "gentle", label: "Gentle", isDefault: true },
+              { id: "brutal", label: "Brutal" },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+});
 const CLAUDE_TEST_MODEL_SELECTION = {
   instanceId: ProviderInstanceId.make(ClaudeAdapterV2.CLAUDE_PROVIDER),
   model: "claude-sonnet-4-6",
@@ -2108,6 +2131,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     readonly close?: (sdkMessages: Queue.Queue<SDKMessage>) => Effect.Effect<void>;
     readonly interrupt?: Effect.Effect<void>;
     readonly environment?: NodeJS.ProcessEnv;
+    readonly settings?: ClaudeSettings;
     // A CLI process opened after the first streams from its own queue, so the
     // first one can exit (Queue.shutdown) and a later turn can start another.
     readonly freshQueueOnReopen?: boolean;
@@ -2142,7 +2166,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       let openedOptions: ClaudeAdapterV2.ClaudeAgentSdkQueryOptions | undefined;
       const adapter = yield* ClaudeAdapterV2.makeClaudeAdapterV2({
         instanceId: ClaudeAdapterV2.CLAUDE_DEFAULT_INSTANCE_ID,
-        settings: DEFAULT_CLAUDE_SETTINGS,
+        settings: options?.settings ?? DEFAULT_CLAUDE_SETTINGS,
         environment: options?.environment ?? {},
         attachmentsDir,
         fileSystem,
@@ -8219,6 +8243,110 @@ describe("ClaudeAdapterV2 background wake turns", () => {
           ),
         ),
       ),
+  );
+
+  it.effect("resolves a subagent's model and effort against the instance's custom models", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const TUNED_TOOL_USE_ID = "toolu-effort-custom-tuned";
+        const SHADOW_TOOL_USE_ID = "toolu-effort-custom-shadow";
+        const harness = yield* makeWakeHarnessWithOptions({
+          settings: CUSTOM_MODEL_CLAUDE_SETTINGS,
+        });
+        const now = yield* DateTime.now;
+        yield* harness.runtime.startTurn(
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now,
+            attemptId: RunAttemptId.make("attempt-subagent-custom-effort"),
+            text: "Spawn subagents on custom models.",
+            attachments: [],
+          }),
+        );
+        for (const frame of [
+          claudeSdkFrame({
+            type: "assistant",
+            parent_tool_use_id: null,
+            message: {
+              model: CLAUDE_TEST_MODEL_SELECTION.model,
+              id: "msg_custom_effort_launch",
+              type: "message",
+              role: "assistant",
+              content: [
+                {
+                  type: "tool_use",
+                  id: TUNED_TOOL_USE_ID,
+                  name: "Agent",
+                  input: {
+                    description: "Tuned",
+                    subagent_type: "general-purpose",
+                    model: "claude-custom-tuned",
+                    effort: "brutal",
+                    prompt: "Check one thing.",
+                  },
+                },
+                {
+                  type: "tool_use",
+                  id: SHADOW_TOOL_USE_ID,
+                  name: "Agent",
+                  input: {
+                    description: "Shadow",
+                    subagent_type: "general-purpose",
+                    model: "opus",
+                    prompt: "Check another thing.",
+                  },
+                },
+              ],
+            },
+            uuid: "00000000-0000-4000-8000-000000000231",
+            session_id: WAKE_NATIVE_SESSION,
+          }),
+          ...[TUNED_TOOL_USE_ID, SHADOW_TOOL_USE_ID].map((id, index) =>
+            claudeSdkFrame({
+              type: "system",
+              subtype: "task_started",
+              task_id: `task-${id}`,
+              tool_use_id: id,
+              description: id,
+              task_type: "local_agent",
+              uuid: `00000000-0000-4000-8000-00000000023${index + 2}`,
+              session_id: WAKE_NATIVE_SESSION,
+            }),
+          ),
+          makeResultFrame({
+            uuid: "00000000-0000-4000-8000-000000000234",
+            result: "Spawned the subagents.",
+          }),
+        ]) {
+          yield* Queue.offer(harness.sdkMessages, frame);
+        }
+        yield* Queue.take(harness.terminalReceipts);
+
+        const selections = Object.fromEntries(
+          harness.events.flatMap((event) =>
+            event.type === "subagent.updated"
+              ? [[event.subagent.nativeTaskRef?.nativeId, event.subagent.modelSelection] as const]
+              : [],
+          ),
+        );
+        const instanceId = CLAUDE_TEST_MODEL_SELECTION.instanceId;
+        assert.deepEqual(selections, {
+          // The custom model's own effort levels apply.
+          [`task-${TUNED_TOOL_USE_ID}`]: {
+            instanceId,
+            model: "claude-custom-tuned",
+            options: [{ id: "effort", value: "brutal" }],
+          },
+          // The custom slug is not resolved to the built-in model it shadows.
+          [`task-${SHADOW_TOOL_USE_ID}`]: { instanceId, model: "opus" },
+        });
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+        ),
+      ),
+    ),
   );
 
   it.effect("gives a nested subagent its own effort, else the one its owner runs at", () =>
